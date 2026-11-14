@@ -38,7 +38,6 @@
         .glow-cyan { filter: drop-shadow(0 0 12px rgba(14, 165, 233, 0.7)); }
         .glow-red { filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.8)); }
         
-        /* Выделенный темный стиль карты высокой четкости */
         .leaflet-container { background: #0b0f19 !important; border-radius: 1rem; }
         .leaflet-tile-pane {
             filter: invert(1) hue-rotate(190deg) brightness(0.75) contrast(1.25);
@@ -146,10 +145,16 @@
             </div>
         </div>
 
-        <!-- CENTER COLUMN: Speedometer & Live GPS Map -->
+        <!-- CENTER COLUMN: Speedometer, ADAS State & Live GPS Map -->
         <div class="flex flex-col gap-6">
             <div class="glass-panel rounded-3xl p-6 flex flex-col items-center justify-center relative">
-                <div class="relative w-full max-w-[240px] aspect-square flex items-center justify-center mx-auto">
+                <!-- ADAS AI State Badge -->
+                <div class="absolute top-4 left-4 px-3 py-1 bg-slate-800/80 border border-slate-700 rounded-full flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                    <span id="ui-driver-state" class="text-[11px] font-mono font-bold text-cyan-400 uppercase">AI: CRUISING</span>
+                </div>
+
+                <div class="relative w-full max-w-[240px] aspect-square flex items-center justify-center mx-auto mt-4">
                     <svg viewBox="0 0 320 320" class="absolute inset-0 w-full h-full transform -rotate-[225deg]">
                         <circle cx="160" cy="160" r="140" fill="none" stroke="#1e293b" stroke-width="18" stroke-linecap="round" stroke-dasharray="660 220" stroke-dashoffset="0"></circle>
                         <circle id="ui-speed-arc" cx="160" cy="160" r="140" fill="none" stroke="#0ea5e9" stroke-width="18" stroke-linecap="round" stroke-dasharray="660 220" stroke-dashoffset="660" class="transition-all duration-300 ease-out glow-cyan"></circle>
@@ -278,6 +283,7 @@
             temp: document.getElementById('ui-temp'),
             odo: document.getElementById('ui-odo'),
             latLng: document.getElementById('ui-latlng'),
+            driverState: document.getElementById('ui-driver-state'),
             tireFl: document.getElementById('ui-tire-fl'),
             tireFr: document.getElementById('ui-tire-fr'),
             tireRl: document.getElementById('ui-tire-rl'),
@@ -292,7 +298,6 @@
         function initMap() {
             map = L.map('map', { zoomControl: false }).setView([48.7220, 21.2575], 14);
             
-            // Загрузка оригинальных тайлов OpenStreetMap с темным CSS-фильтром
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; OpenStreetMap contributors',
                 maxZoom: 19
@@ -359,6 +364,17 @@
         }
 
         function updateDashboard(data) {
+            if (data.driver_state) {
+                ui.driverState.innerText = `AI: ${data.driver_state}`;
+                if (data.driver_state === 'RED LIGHT STOP') {
+                    ui.driverState.className = "text-[11px] font-mono font-bold text-red-400 uppercase";
+                } else if (data.driver_state === 'CORNERING') {
+                    ui.driverState.className = "text-[11px] font-mono font-bold text-amber-400 uppercase";
+                } else {
+                    ui.driverState.className = "text-[11px] font-mono font-bold text-cyan-400 uppercase";
+                }
+            }
+
             if (data.location) {
                 const lat = data.location.lat;
                 const lng = data.location.lng;

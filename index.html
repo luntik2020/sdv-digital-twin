@@ -37,7 +37,12 @@
         }
         .glow-cyan { filter: drop-shadow(0 0 12px rgba(14, 165, 233, 0.7)); }
         .glow-red { filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.8)); }
+        
+        /* Выделенный темный стиль карты высокой четкости */
         .leaflet-container { background: #0b0f19 !important; border-radius: 1rem; }
+        .leaflet-tile-pane {
+            filter: invert(1) hue-rotate(190deg) brightness(0.75) contrast(1.25);
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col items-center justify-between p-4 md:p-8 overflow-x-hidden">
@@ -287,10 +292,10 @@
         function initMap() {
             map = L.map('map', { zoomControl: false }).setView([48.7220, 21.2575], 14);
             
-            // Использование бесплатной карты Esri World Dark Gray without API Key requirements
-            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-                attribution: 'Tiles &copy; Esri',
-                maxZoom: 16
+            // Загрузка оригинальных тайлов OpenStreetMap с темным CSS-фильтром
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 19
             }).addTo(map);
 
             geofenceCircle = L.circle(GEOFENCE_CENTER, {

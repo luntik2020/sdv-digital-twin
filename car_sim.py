@@ -208,7 +208,7 @@ def update_ai_driver_behavior(car_id, client):
 
     # 3. Реакция на внешние V2X предупреждения
     if car["v2x_warning"]:
-        car["target_speed"] = 30.0  # Автоматический лимит V2X безопасного разъезда
+        car["target_speed"] = 30.0
         car["state"] = "V2X SLOWDOWN"
         return
 

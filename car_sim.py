@@ -186,16 +186,16 @@ def update_ai_driver_behavior(car_id):
             car["state"] = "CRUISING"
 
 def update_car_physics_and_position(car_id):
-    """ Плавная физика торможения/разгона и расчет позиции """
+    """ Постепенная физика торможения/разгона и расчет позиции """
     car = fleet[car_id]
 
     speed_diff = car["target_speed"] - car["speed"]
     if speed_diff < 0:
-        # При экстренном торможении гасим скорость быстрее
-        decel_rate = 18.0 if car["state"] == "EMERGENCY STOP" else 12.0
+        # Постепенное аварийное торможение со скоростью 4.0 км/ч в секунду
+        decel_rate = 4.0 if car["state"] == "EMERGENCY STOP" else 8.0
         car["speed"] = max(0.0, car["speed"] - decel_rate)
     elif speed_diff > 0:
-        car["speed"] = min(car["target_speed"], car["speed"] + 5.0)
+        car["speed"] = min(car["target_speed"], car["speed"] + 4.0)
 
     if car["speed"] < 0.5 and car["target_speed"] == 0.0:
         car["speed"] = 0.0
@@ -261,7 +261,7 @@ try:
 
             doors_closed = False if data["faults"].get("open_door") else True
 
-            # Режим передачи КПП: P включается ТОЛЬКО когда машина полностью остановилась (speed == 0) при аварии или парковке
+            # Режим передачи КПП: P включается ТОЛЬКО когда машина полностью остановилась (speed == 0.0)
             if data["speed"] == 0.0 and (data["state"] == "EMERGENCY STOP" or len(data["faults"]) > 0):
                 gear_state = "P"
             else:

@@ -11,28 +11,37 @@ PORT = 1883
 TELEMETRY_TOPIC_PREFIX = "sdv/telemetry/"
 COMMANDS_TOPIC = "sdv/commands/+"
 
-# Košice Waypoints [lng, lat]
+# Замкнутые кольцевые маршруты по улицам Кошице [lng, lat]
 WAYPOINTS = {
-    # car_001: Moyzesova -> Štúrova -> Hlavná
+    # car_001: Кольцо вокруг Старого Города (Moyzesova -> Štúrova -> Protifašistických bojovníkov -> Hviezdoslavova)
     "car_001": [
-        [21.2531, 48.7245], [21.2526, 48.7215], [21.2520, 48.7182], 
-        [21.2545, 48.7170], [21.2580, 48.7162], [21.2575, 48.7200], 
-        [21.2570, 48.7240], [21.2558, 48.7280], [21.2538, 48.7270]
+        [21.2531, 48.7245],
+        [21.2520, 48.7182],
+        [21.2615, 48.7160],
+        [21.2625, 48.7240],
+        [21.2558, 48.7285],
+        [21.2531, 48.7245]  # Замыкание кольца
     ],
-    # car_002: TUKE Campus / Watsonova / Festivalové námestie
+    # car_002: Район TUKE (Watsonova -> Komenského -> Letná -> Watsonova)
     "car_002": [
-        [21.2415, 48.7282], [21.2452, 48.7325], [21.2498, 48.7362], 
-        [21.2545, 48.7358], [21.2550, 48.7320], [21.2490, 48.7305]
+        [21.2420, 48.7300],
+        [21.2510, 48.7370],
+        [21.2545, 48.7350],
+        [21.2480, 48.7280],
+        [21.2420, 48.7300]  # Замыкание кольца
     ],
-    # car_003: Južná trieda / Rastislavova
+    # car_003: Южная магистраль Кошице (Južná trieda -> Rastislavova)
     "car_003": [
-        [21.2580, 48.7160], [21.2595, 48.7095], [21.2615, 48.7020], 
-        [21.2630, 48.6960], [21.2615, 48.7020], [21.2595, 48.7095]
+        [21.2580, 48.7140],
+        [21.2610, 48.7000],
+        [21.2540, 48.7000],
+        [21.2520, 48.7150],
+        [21.2580, 48.7140]  # Замыкание кольца
     ]
 }
 
 def fetch_osrm_road_geometry(coords):
-    """ Запрашивает реальную геометрию дорог OSRM через HTTPS """
+    """ Запрашивает геометрию дорог OSRM для замкнутого кольца """
     try:
         coord_str = ";".join([f"{c[0]},{c[1]}" for c in coords])
         url = f"https://router.project-osrm.org/route/v1/driving/{coord_str}?overview=full&geometries=geojson"
@@ -48,146 +57,145 @@ def fetch_osrm_road_geometry(coords):
         with urllib.request.urlopen(req, context=ctx, timeout=5) as response:
             data = json.loads(response.read().decode())
             geometry = data['routes'][0]['geometry']['coordinates']
-            pts = [[p[1], p[0]] for p in geometry] # lat, lng
-            print(f"[OSRM SUCCESS] Загружено {len(pts)} точек дорожного графа.")
-            return pts + pts[::-1][1:-1]
+            pts = [[p[1], p[0]] for p in geometry]  # lat, lng
+            print(f"[OSRM SUCCESS] Построено кольцо из {len(pts)} точек.")
+            return pts
     except Exception as e:
-        print(f"[OSRM WARN] OSRM недоступен ({e}). Применена локальная сетка.")
+        print(f"[OSRM WARN] OSRM недоступен ({e}). Использована локальная сетка.")
         dense_pts = []
-        for i in range(len(coords)):
+        for i in range(len(coords) - 1):
             p1 = coords[i]
-            p2 = coords[(i + 1) % len(coords)]
-            for step in range(12):
-                t = step / 12.0
+            p2 = coords[i + 1]
+            for step in range(20):
+                t = step / 20.0
                 lat = p1[1] + (p2[1] - p1[1]) * t
                 lng = p1[0] + (p2[0] - p1[0]) * t
                 dense_pts.append([lat, lng])
         return dense_pts
 
-def calculate_turn_angle(p1, p2, p3):
-    """ Расчет угла поворота дороги в градусах """
-    v1 = (p2[0] - p1[0], p2[1] - p1[1])
-    v2 = (p3[0] - p2[0], p3[1] - p2[1])
-    len1 = math.hypot(*v1)
-    len2 = math.hypot(*v2)
-    if len1 == 0 or len2 == 0:
-        return 0.0
-    dot = (v1[0]*v2[0] + v1[1]*v2[1]) / (len1 * len2)
-    dot = max(-1.0, min(1.0, dot))
-    return math.degrees(math.acos(dot))
+def haversine_distance(p1, p2):
+    """ Расчет расстояния между GPS точками в метрах """
+    R = 6371000.0
+    phi1, phi2 = math.radians(p1[0]), math.radians(p2[0])
+    dphi = math.radians(p2[0] - p1[0])
+    dlambda = math.radians(p2[1] - p1[1])
+    a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
+    return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-print("[INIT] Запуск ИИ-симулятора автономного вождения...")
+def prepare_fleet_routes(fleet_data):
+    """ Предрасчет накопительной дистанции маршрута """
+    for car_id, car in fleet_data.items():
+        pts = car["route_points"]
+        cum_dist = [0.0]
+        for i in range(len(pts) - 1):
+            d = haversine_distance(pts[i], pts[i+1])
+            cum_dist.append(cum_dist[-1] + d)
+        car["cum_dist"] = cum_dist
+        car["total_dist"] = cum_dist[-1] if cum_dist[-1] > 0 else 1.0
+        car["dist_along_route"] = 0.0
+
+def get_position_at_distance(pts, cum_dist, total_dist, target_d):
+    """ Вычисляет точные координаты машины на дистанции target_d (в метрах) """
+    target_d = target_d % total_dist
+    for i in range(len(cum_dist) - 1):
+        if cum_dist[i] <= target_d <= cum_dist[i+1]:
+            seg_len = cum_dist[i+1] - cum_dist[i]
+            if seg_len < 0.0001:
+                return pts[i][0], pts[i][1]
+            t = (target_d - cum_dist[i]) / seg_len
+            lat = pts[i][0] + (pts[i+1][0] - pts[i][0]) * t
+            lng = pts[i][1] + (pts[i+1][1] - pts[i][1]) * t
+            return lat, lng
+    return pts[0][0], pts[0][1]
+
+print("[INIT] Загрузка кольцевых автодорог Кошице...")
 
 fleet = {
     "car_001": {
-        "speed": 0.0, "target_speed": 50.0, "cruise_speed": 55.0,
+        "speed": 0.0, "target_speed": 50.0, "cruise_speed": 50.0,
         "battery": 95.0, "temp": 25.0, "odo": 15420.0, "faults": {},
         "route_points": fetch_osrm_road_geometry(WAYPOINTS["car_001"]),
-        "curr_idx": 0, "segment_progress": 0.0,
         "state": "CRUISING", "stop_timer": 0
     },
     "car_002": {
-        "speed": 40.0, "target_speed": 50.0, "cruise_speed": 60.0,
+        "speed": 40.0, "target_speed": 50.0, "cruise_speed": 55.0,
         "battery": 78.0, "temp": 29.0, "odo": 8410.0, "faults": {},
         "route_points": fetch_osrm_road_geometry(WAYPOINTS["car_002"]),
-        "curr_idx": 0, "segment_progress": 0.0,
         "state": "CRUISING", "stop_timer": 0
     },
     "car_003": {
-        "speed": 60.0, "target_speed": 80.0, "cruise_speed": 85.0,
+        "speed": 60.0, "target_speed": 70.0, "cruise_speed": 70.0,
         "battery": 34.0, "temp": 33.0, "odo": 41200.0, "faults": {},
         "route_points": fetch_osrm_road_geometry(WAYPOINTS["car_003"]),
-        "curr_idx": 0, "segment_progress": 0.0,
         "state": "CRUISING", "stop_timer": 0
     }
 }
 
-def update_ai_driver_behavior(car_id):
-    """ Каждую секунду обновляет решения автопилота """
-    car = fleet[car_id]
-    route = car["route_points"]
-    if not route or len(route) < 3:
-        return
+prepare_fleet_routes(fleet)
 
-    # 1. Если авто находится в режиме ожидания на красный светофор
+def update_ai_driver_behavior(car_id):
+    """ ИИ-контроллер вождения """
+    car = fleet[car_id]
+    
     if car["stop_timer"] > 0:
         car["stop_timer"] -= 1
         car["target_speed"] = 0.0
         car["state"] = "RED LIGHT STOP"
         return
 
-    idx = car["curr_idx"]
-    p1 = route[idx]
-    p2 = route[(idx + 1) % len(route)]
-    p3 = route[(idx + 2) % len(route)]
+    curr_d = car["dist_along_route"]
+    pts = car["route_points"]
+    cum_d = car["cum_dist"]
+    tot_d = car["total_dist"]
 
-    angle = calculate_turn_angle(p1, p2, p3)
+    lat1, lng1 = get_position_at_distance(pts, cum_d, tot_d, curr_d)
+    lat2, lng2 = get_position_at_distance(pts, cum_d, tot_d, curr_d + 15)
+    lat3, lng3 = get_position_at_distance(pts, cum_d, tot_d, curr_d + 30)
 
-    # 2. Определение крутого поворота
-    if angle > 30.0:
-        car["target_speed"] = 18.0  # Снижаем скорость перед поворотом
+    v1 = (lat2 - lat1, lng2 - lng1)
+    v2 = (lat3 - lat2, lng3 - lng2)
+    len1 = math.hypot(*v1)
+    len2 = math.hypot(*v2)
+
+    angle = 0.0
+    if len1 > 0.000001 and len2 > 0.000001:
+        dot = (v1[0]*v2[0] + v1[1]*v2[1]) / (len1 * len2)
+        dot = max(-1.0, min(1.0, dot))
+        angle = math.degrees(math.acos(dot))
+
+    if angle > 25.0:
+        car["target_speed"] = 20.0
         car["state"] = "CORNERING"
     else:
-        # 3. Случайное появление красного светофора / знака Стоп (шанс 10%)
-        if car["segment_progress"] < 0.15 and random.random() < 0.10:
-            car["stop_timer"] = random.randint(4, 7)  # Остановка на 4-7 сек
+        if random.random() < 0.04:  # 4% шанс остановки на светофоре
+            car["stop_timer"] = random.randint(4, 7)
             car["target_speed"] = 0.0
             car["state"] = "RED LIGHT STOP"
-            print(f"[TRAFFIC AI] {car_id} остановился перед светофором.")
+            print(f"[TRAFFIC AI] {car_id} остановился на красный свет.")
         else:
             car["target_speed"] = car["cruise_speed"] + random.uniform(-2, 2)
             car["state"] = "CRUISING"
 
 def update_car_physics_and_position(car_id):
-    """ Пересчитывает реальную физику скоростей и координату GPS """
+    """ Плавная физика и продвижение вперед по траектории """
     car = fleet[car_id]
-    
-    # Регулятор торможения и разгона
+
     speed_diff = car["target_speed"] - car["speed"]
     if speed_diff < 0:
-        # Интенсивное торможение до 0 км/ч (-15 км/ч в сек)
-        car["speed"] = max(0.0, car["speed"] - 15.0)
+        car["speed"] = max(0.0, car["speed"] - 12.0)  # Торможение
     elif speed_diff > 0:
-        # Плавное ускорение (+6 км/ч в сек)
-        car["speed"] = min(car["target_speed"], car["speed"] + 6.0)
+        car["speed"] = min(car["target_speed"], car["speed"] + 5.0)  # Разгон
 
-    # Принудительное обнуление микро-скоростей
-    if car["speed"] < 0.8 and car["target_speed"] == 0.0:
+    if car["speed"] < 0.5 and car["target_speed"] == 0.0:
         car["speed"] = 0.0
 
-    route = car["route_points"]
-    if not route or len(route) < 2:
-        return 48.7220, 21.2575
+    # Продвижение вперед в метрах за 1 секунду
+    dist_moved = (car["speed"] / 3.6)
+    car["dist_along_route"] = (car["dist_along_route"] + dist_moved) % car["total_dist"]
 
-    # Если машина полностью остановилась — удерживаем позицию
-    if car["speed"] <= 0.0:
-        idx = car["curr_idx"]
-        return route[idx][0], route[idx][1]
-
-    idx = car["curr_idx"]
-    next_idx = (idx + 1) % len(route)
-    p1 = route[idx]
-    p2 = route[next_idx]
-
-    d_lat = p2[0] - p1[0]
-    d_lng = p2[1] - p1[1]
-    seg_len = math.sqrt(d_lat**2 + d_lng**2)
-
-    if seg_len < 0.0000001:
-        car["curr_idx"] = next_idx
-        car["segment_progress"] = 0.0
-        return p2[0], p2[1]
-
-    speed_deg_sec = (car["speed"] / 3600.0) / 111.0
-    car["segment_progress"] += speed_deg_sec / seg_len
-
-    if car["segment_progress"] >= 1.0:
-        car["segment_progress"] = 0.0
-        car["curr_idx"] = (car["curr_idx"] + 1) % len(route)
-
-    prog = car["segment_progress"]
-    lat = p1[0] + (p2[0] - p1[0]) * prog
-    lng = p1[1] + (p2[1] - p1[1]) * prog
+    lat, lng = get_position_at_distance(
+        car["route_points"], car["cum_dist"], car["total_dist"], car["dist_along_route"]
+    )
 
     return lat, lng
 
@@ -221,15 +229,12 @@ client.on_message = on_message
 client.connect(BROKER_ADDRESS, PORT)
 client.loop_start()
 
-print("[READY] SDV Autonomous Simulator активно работает...")
+print("[READY] Симулятор автономных автомобилей запущен...")
 
 try:
     while True:
         for car_id, data in fleet.items():
-            # 1. Запуск логики ИИ каждый секунду
             update_ai_driver_behavior(car_id)
-
-            # 2. Обновление физики и позиции
             lat, lng = update_car_physics_and_position(car_id)
 
             is_moving = data["speed"] > 0.5

@@ -115,7 +115,8 @@ fleet = {
         "route_points": fetch_osrm_road_geometry(WAYPOINTS["car_001"]),
         "state": "CRUISING", "stop_timer": 0,
         "sw_version": "v1.0.0-STD", "ota_status": "IDLE", "ota_progress": 0, "pending_ota": None,
-        "dtc_codes": [], "v2x_warning": None
+        "dtc_codes": [], "v2x_warning": None,
+        "tire_pressures": {"fl": 2.20, "fr": 2.20, "rl": 2.20, "rr": 2.20}
     },
     "car_002": {
         "speed": 40.0, "target_speed": 50.0, "cruise_speed": 55.0,
@@ -123,7 +124,8 @@ fleet = {
         "route_points": fetch_osrm_road_geometry(WAYPOINTS["car_002"]),
         "state": "CRUISING", "stop_timer": 0,
         "sw_version": "v1.0.0-STD", "ota_status": "IDLE", "ota_progress": 0, "pending_ota": None,
-        "dtc_codes": [], "v2x_warning": None
+        "dtc_codes": [], "v2x_warning": None,
+        "tire_pressures": {"fl": 2.25, "fr": 2.25, "rl": 2.25, "rr": 2.25}
     },
     "car_003": {
         "speed": 60.0, "target_speed": 70.0, "cruise_speed": 70.0,
@@ -131,7 +133,8 @@ fleet = {
         "route_points": fetch_osrm_road_geometry(WAYPOINTS["car_003"]),
         "state": "CRUISING", "stop_timer": 0,
         "sw_version": "v1.0.0-STD", "ota_status": "IDLE", "ota_progress": 0, "pending_ota": None,
-        "dtc_codes": [], "v2x_warning": None
+        "dtc_codes": [], "v2x_warning": None,
+        "tire_pressures": {"fl": 2.30, "fr": 2.30, "rl": 2.30, "rr": 2.30}
     }
 }
 
@@ -188,7 +191,6 @@ def update_ai_driver_behavior(car_id, client):
         car["target_speed"] = 0.0
         car["state"] = "EMERGENCY STOP"
         
-        # V2X трансляция сообщения об опасности другим авто
         v2x_payload = {
             "sender": car_id,
             "event": "HAZARD_STOP",
@@ -269,6 +271,31 @@ def update_car_physics_and_position(car_id):
 
     return lat, lng
 
+def update_tire_thermodynamics(car_id):
+    """ Плавно меняет давление в шинах на основе физики нагрева, остывания и стравливания """
+    car = fleet[car_id]
+    speed = car["speed"]
+    tp = car["tire_pressures"]
+
+    # Целевое давление от нагрева в движении (от 2.15 бар на стояночном месте до ~2.38 бар на 75+ км/ч)
+    target_warm_pressure = 2.15 + (speed / 100.0) * 0.30
+
+    for key in ["fl", "fr", "rl", "rr"]:
+        # 1. Прокол переднего левого колеса (плавное стравливание до 1.15 бар)
+        if key == "fl" and car["faults"].get("puncture_fl"):
+            if tp[key] > 1.15:
+                tp[key] -= 0.08  # Плавный спуск воздуха за несколько секунд
+            else:
+                tp[key] = 1.15 + random.uniform(-0.01, 0.01)
+            continue
+
+        # 2. Если колесо исправно — оно плавно приближается к целевой температуре/давлению
+        diff = target_warm_pressure - tp[key]
+        tp[key] += diff * 0.03  # Инерционный плавный разогрев/остывание
+
+        # Микроскопический аналоговый шум датчика TPMS (±0.005 бар)
+        tp[key] += random.uniform(-0.005, 0.005)
+
 def on_connect(client, userdata, flags, rc, properties=None):
     print("[MQTT] Симулятор подключен к брокеру.")
     client.subscribe(COMMANDS_TOPIC)
@@ -323,6 +350,7 @@ try:
             process_ota_updates(car_id)
             update_ai_driver_behavior(car_id, client)
             lat, lng = update_car_physics_and_position(car_id)
+            update_tire_thermodynamics(car_id)
 
             is_moving = data["speed"] > 0.5
 
@@ -331,7 +359,6 @@ try:
                 data["odo"] += (data["speed"] / 3600)
 
             current_temp = 25.0 + (data["speed"] / 100) * 5.0 + random.uniform(0.1, 0.3)
-            tire_fl = 1.2 if data["faults"].get("puncture_fl") else round(random.uniform(2.1, 2.3), 2)
             if data["faults"].get("overheat_battery"):
                 current_temp = 68.5 + random.uniform(0.1, 0.8)
 
@@ -360,10 +387,10 @@ try:
                     "lng": round(lng, 6)
                 },
                 "tires_bar": {
-                    "fl": tire_fl,
-                    "fr": round(random.uniform(2.1, 2.3), 2),
-                    "rl": round(random.uniform(2.2, 2.4), 2),
-                    "rr": round(random.uniform(2.2, 2.4), 2)
+                    "fl": round(data["tire_pressures"]["fl"], 2),
+                    "fr": round(data["tire_pressures"]["fr"], 2),
+                    "rl": round(data["tire_pressures"]["rl"], 2),
+                    "rr": round(data["tire_pressures"]["rr"], 2)
                 },
                 "status": {
                     "doors_closed": doors_closed,

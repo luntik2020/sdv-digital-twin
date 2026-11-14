@@ -367,7 +367,7 @@
         function updateDashboard(data) {
             if (data.driver_state) {
                 ui.driverState.innerText = `AI: ${data.driver_state}`;
-                if (data.driver_state === 'RED LIGHT STOP') {
+                if (data.driver_state === 'EMERGENCY STOP' || data.driver_state === 'RED LIGHT STOP') {
                     ui.driverState.className = "text-[11px] font-mono font-bold text-red-400 uppercase";
                     ui.driverDot.className = "w-2 h-2 rounded-full bg-red-400 animate-ping";
                 } else if (data.driver_state === 'CORNERING') {

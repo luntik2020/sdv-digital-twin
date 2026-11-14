@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SDV Telemetry & OTA Management - Košice</title>
+    <title>SDV Telemetry, V2X & Diagnostics - Košice</title>
     
     <!-- Tailwind CSS & Phosphor Icons -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -52,7 +52,7 @@
             <i class="ph-fill ph-car-profile text-3xl text-cyan-400"></i>
             <div>
                 <h1 class="text-xl font-bold tracking-wider text-slate-100 uppercase">SDV Platform Košice</h1>
-                <p class="text-xs text-slate-400">Architecture: Adaptive AUTOSAR SOA & SOTA</p>
+                <p class="text-xs text-slate-400">Adaptive AUTOSAR SOA + V2X + ISO 14229 UDS</p>
             </div>
         </div>
         
@@ -75,6 +75,18 @@
             </div>
         </div>
     </header>
+
+    <!-- V2X Safety Warning Banner -->
+    <div id="v2x-alert" class="hidden w-full max-w-7xl mb-6 p-4 bg-purple-950/40 border border-purple-500/50 rounded-2xl flex items-center justify-between backdrop-blur-md">
+        <div class="flex items-center gap-3">
+            <i class="ph-bold ph-radio-button text-purple-400 text-2xl animate-ping"></i>
+            <div>
+                <div class="text-xs text-purple-400 font-bold uppercase tracking-wider">V2X Safety Network Broadcast</div>
+                <div id="v2x-alert-text" class="text-sm text-slate-200">Warning: Hazard ahead reported by nearby vehicle. Speed limited to 30 km/h.</div>
+            </div>
+        </div>
+        <span class="text-xs text-slate-500 font-mono hidden sm:inline">ETSI.DENM.V2XService</span>
+    </div>
 
     <!-- Geofence Alert Banner -->
     <div id="geofence-alert" class="hidden w-full max-w-7xl mb-6 p-4 bg-amber-950/40 border border-amber-500/50 rounded-2xl flex items-center justify-between backdrop-blur-md">
@@ -120,25 +132,21 @@
                     <span id="ui-sw-version" class="text-xs font-mono font-bold px-3 py-1 bg-cyan-950/60 border border-cyan-800 text-cyan-400 rounded-full">v1.0.0-STD</span>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
-                    <!-- Doors -->
                     <div id="stat-doors" class="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-800/50 border border-slate-700/50 transition-colors text-center">
                         <i id="icon-doors" class="ph ph-door-open text-3xl mb-1 text-slate-400"></i>
                         <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Doors</span>
                         <span class="text-xs font-semibold uppercase tracking-wider" id="text-doors">Closed</span>
                     </div>
-                    <!-- Seatbelts -->
                     <div id="stat-belts" class="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-800/50 border border-slate-700/50 transition-colors text-center">
                         <i id="icon-belts" class="ph ph-seatbelt text-3xl mb-1 text-slate-400"></i>
                         <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Seatbelts</span>
                         <span class="text-xs font-semibold uppercase tracking-wider" id="text-belts">Fastened</span>
                     </div>
-                    <!-- AC -->
                     <div id="stat-ac" class="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-800/50 border border-slate-700/50 transition-colors text-center">
                         <i id="icon-ac" class="ph ph-wind text-3xl mb-1 text-slate-400"></i>
                         <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Climate</span>
                         <span class="text-xs font-semibold uppercase tracking-wider" id="text-ac">AC On</span>
                     </div>
-                    <!-- Drivetrain -->
                     <div id="stat-gear" class="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-800/50 border border-slate-700/50 transition-colors text-center">
                         <i id="icon-gear" class="ph ph-steering-wheel text-3xl mb-1 text-slate-400"></i>
                         <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Drivetrain</span>
@@ -189,41 +197,50 @@
             </div>
         </div>
 
-        <!-- RIGHT COLUMN: TPMS -->
-        <div class="glass-panel rounded-3xl p-6 flex flex-col items-center justify-center relative">
-            <h2 class="absolute top-6 left-6 text-sm uppercase tracking-widest text-slate-400">Chassis & Tires</h2>
-            <div class="text-xs text-slate-500 absolute top-6 right-6">Pressure (Bar)</div>
-            
-            <div class="relative w-40 h-80 mt-14 mb-4 flex items-center justify-center mx-auto">
-                <div class="absolute inset-0 m-auto w-24 h-64 border-2 border-slate-600 rounded-[3rem] opacity-70 bg-gradient-to-b from-slate-800/20 to-slate-800/0"></div>
-                <div class="absolute inset-0 m-auto w-20 h-12 top-16 border border-slate-700 rounded-t-xl bg-slate-800/30"></div>
-                <div class="absolute inset-0 m-auto w-20 h-10 bottom-16 border border-slate-700 rounded-b-xl bg-slate-800/30"></div>
+        <!-- RIGHT COLUMN: TPMS & DTC Diagnostics -->
+        <div class="flex flex-col gap-6">
+            <div class="glass-panel rounded-3xl p-6 flex flex-col items-center justify-center relative h-[320px]">
+                <h2 class="absolute top-6 left-6 text-sm uppercase tracking-widest text-slate-400">Chassis & Tires</h2>
+                <div class="text-xs text-slate-500 absolute top-6 right-6">Pressure (Bar)</div>
                 
-                <div class="absolute top-12 -left-2 w-4 h-12 bg-slate-800 border border-slate-600 rounded-md"></div>
-                <div class="absolute top-14 -left-16 flex flex-col items-end">
-                    <span id="ui-tire-fl" class="text-lg font-mono font-bold text-white">-.--</span>
+                <div class="relative w-40 h-52 mt-8 flex items-center justify-center mx-auto">
+                    <div class="absolute inset-0 m-auto w-20 h-44 border-2 border-slate-600 rounded-[2rem] opacity-70 bg-gradient-to-b from-slate-800/20 to-slate-800/0"></div>
+                    <div class="absolute top-6 -left-14 flex flex-col items-end">
+                        <span id="ui-tire-fl" class="text-sm font-mono font-bold text-white">-.--</span>
+                    </div>
+                    <div class="absolute top-6 -right-14 flex flex-col items-start">
+                        <span id="ui-tire-fr" class="text-sm font-mono font-bold text-white">-.--</span>
+                    </div>
+                    <div class="absolute bottom-6 -left-14 flex flex-col items-end">
+                        <span id="ui-tire-rl" class="text-sm font-mono font-bold text-white">-.--</span>
+                    </div>
+                    <div class="absolute bottom-6 -right-14 flex flex-col items-start">
+                        <span id="ui-tire-rr" class="text-sm font-mono font-bold text-white">-.--</span>
+                    </div>
                 </div>
-                <div class="absolute top-12 -right-2 w-4 h-12 bg-slate-800 border border-slate-600 rounded-md"></div>
-                <div class="absolute top-14 -right-16 flex flex-col items-start">
-                    <span id="ui-tire-fr" class="text-lg font-mono font-bold text-white">-.--</span>
-                </div>
-                <div class="absolute bottom-12 -left-2 w-4 h-12 bg-slate-800 border border-slate-600 rounded-md"></div>
-                <div class="absolute bottom-14 -left-16 flex flex-col items-end">
-                    <span id="ui-tire-rl" class="text-lg font-mono font-bold text-white">-.--</span>
-                </div>
-                <div class="absolute bottom-12 -right-2 w-4 h-12 bg-slate-800 border border-slate-600 rounded-md"></div>
-                <div class="absolute bottom-14 -right-16 flex flex-col items-start">
-                    <span id="ui-tire-rr" class="text-lg font-mono font-bold text-white">-.--</span>
+                
+                <div class="mt-auto w-full pt-2">
+                    <div class="flex justify-between text-xs text-slate-400 mb-1">
+                        <span>Tire Health</span>
+                        <span id="tire-health-text" class="text-emerald-400 font-semibold">Optimal</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div id="tire-health-bar" class="h-full bg-emerald-500 rounded-full w-full"></div>
+                    </div>
                 </div>
             </div>
-            
-            <div class="mt-auto w-full pt-4">
-                <div class="flex justify-between text-xs text-slate-400 mb-1">
-                    <span>Tire Health</span>
-                    <span id="tire-health-text" class="text-emerald-400 font-semibold">Optimal</span>
+
+            <!-- ISO 14229 UDS DTC Diagnostics Console -->
+            <div class="glass-panel rounded-3xl p-6 flex flex-col justify-between flex-grow">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-xs uppercase tracking-widest text-slate-400 font-bold flex items-center gap-1.5">
+                        <i class="ph-bold ph-cpu text-cyan-400"></i> UDS Diagnostics (ISO 14229)
+                    </h2>
+                    <span id="dtc-count-badge" class="text-[10px] font-mono px-2 py-0.5 bg-slate-800 border border-slate-700 rounded-full text-slate-400">0 Active DTCs</span>
                 </div>
-                <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                    <div id="tire-health-bar" class="h-full bg-emerald-500 rounded-full w-full"></div>
+                
+                <div id="dtc-container" class="flex flex-col gap-2 overflow-y-auto max-h-[140px] pr-1">
+                    <div class="text-xs text-slate-500 italic text-center py-4">No diagnostic trouble codes recorded. All ECUs normal.</div>
                 </div>
             </div>
         </div>
@@ -233,7 +250,7 @@
     <!-- FAULT INJECTION & OTA MANAGEMENT PANEL -->
     <footer class="w-full max-w-7xl mt-8 glass-panel p-6 rounded-3xl flex flex-col gap-6">
         
-        <!-- OTA Progress Banner (Hidden by default) -->
+        <!-- OTA Progress Banner -->
         <div id="ota-banner" class="hidden p-4 bg-cyan-950/40 border border-cyan-500/50 rounded-2xl flex flex-col gap-2">
             <div class="flex justify-between items-center">
                 <span class="text-xs text-cyan-400 font-bold uppercase tracking-wider flex items-center gap-2">
@@ -307,7 +324,6 @@
         let client;
         let map, carMarker, geofenceCircle;
 
-        // Košice City Center Geofence
         const GEOFENCE_CENTER = [48.7220, 21.2575];
         const GEOFENCE_RADIUS_METERS = 400;
 
@@ -328,6 +344,10 @@
             otaBanner: document.getElementById('ota-banner'),
             otaProgressText: document.getElementById('ota-progress-text'),
             otaProgressBar: document.getElementById('ota-progress-bar'),
+            v2xAlert: document.getElementById('v2x-alert'),
+            v2xAlertText: document.getElementById('v2x-alert-text'),
+            dtcContainer: document.getElementById('dtc-container'),
+            dtcBadge: document.getElementById('dtc-count-badge'),
             tireFl: document.getElementById('ui-tire-fl'),
             tireFr: document.getElementById('ui-tire-fr'),
             tireRl: document.getElementById('ui-tire-rl'),
@@ -420,12 +440,36 @@
                 ui.otaBanner.classList.add('hidden');
             }
 
+            if (data.v2x_warning) {
+                ui.v2xAlert.classList.remove('hidden');
+                ui.v2xAlertText.innerText = data.v2x_warning;
+            } else {
+                ui.v2xAlert.classList.add('hidden');
+            }
+
+            if (data.dtc_codes) {
+                ui.dtcBadge.innerText = `${data.dtc_codes.length} Active DTCs`;
+                if (data.dtc_codes.length === 0) {
+                    ui.dtcContainer.innerHTML = `<div class="text-xs text-slate-500 italic text-center py-4">No diagnostic trouble codes recorded. All ECUs normal.</div>`;
+                } else {
+                    ui.dtcContainer.innerHTML = data.dtc_codes.map(dtc => `
+                        <div class="p-2.5 rounded-xl bg-slate-800/80 border ${dtc.severity === 'CRITICAL' ? 'border-red-500/40 text-red-300' : 'border-amber-500/40 text-amber-300'} flex items-center justify-between">
+                            <div>
+                                <span class="text-xs font-mono font-bold">${dtc.code}</span>
+                                <p class="text-[11px] text-slate-300 leading-tight mt-0.5">${dtc.desc}</p>
+                            </div>
+                            <span class="text-[9px] font-mono px-2 py-0.5 rounded bg-slate-900 uppercase font-bold">${dtc.severity}</span>
+                        </div>
+                    `).join('');
+                }
+            }
+
             if (data.driver_state) {
                 ui.driverState.innerText = `AI: ${data.driver_state}`;
                 if (data.driver_state === 'EMERGENCY STOP' || data.driver_state === 'RED LIGHT STOP') {
                     ui.driverState.className = "text-[11px] font-mono font-bold text-red-400 uppercase";
                     ui.driverDot.className = "w-2 h-2 rounded-full bg-red-400 animate-ping";
-                } else if (data.driver_state === 'CORNERING' || data.driver_state === 'OTA FLASHING') {
+                } else if (data.driver_state === 'CORNERING' || data.driver_state === 'OTA FLASHING' || data.driver_state === 'V2X SLOWDOWN') {
                     ui.driverState.className = "text-[11px] font-mono font-bold text-amber-400 uppercase";
                     ui.driverDot.className = "w-2 h-2 rounded-full bg-amber-400 animate-ping";
                 } else {
@@ -485,7 +529,7 @@
             if(data.tires_bar) {
                 const checkTire = (val, el) => {
                     el.innerText = val.toFixed(2);
-                    el.className = (val < 2.0 || val > 2.5) ? "text-lg font-mono font-bold text-red-400 animate-pulse" : "text-lg font-mono font-bold text-white";
+                    el.className = (val < 2.0 || val > 2.5) ? "text-sm font-mono font-bold text-red-400 animate-pulse" : "text-sm font-mono font-bold text-white";
                 };
                 checkTire(data.tires_bar.fl, ui.tireFl);
                 checkTire(data.tires_bar.fr, ui.tireFr);

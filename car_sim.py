@@ -167,7 +167,8 @@ def update_ai_driver_behavior(car_id):
         car["target_speed"] = 20.0
         car["state"] = "CORNERING"
     else:
-        if random.random() < 0.04:  # 4% шанс остановки на светофоре
+        # Уменьшена вероятность остановки до 0.8% в секунду (примерно раз в 2 минуты)
+        if random.random() < 0.008:
             car["stop_timer"] = random.randint(4, 7)
             car["target_speed"] = 0.0
             car["state"] = "RED LIGHT STOP"
@@ -250,6 +251,9 @@ try:
 
             doors_closed = False if data["faults"].get("open_door") else True
 
+            # КПП остается в D при временной остановке на светофоре
+            gear_state = "P" if len(data["faults"]) > 0 else "D"
+
             telemetry_payload = {
                 "vehicle_id": car_id,
                 "speed_kmh": round(data["speed"], 1),
@@ -272,7 +276,7 @@ try:
                     "doors_closed": doors_closed,
                     "seatbelts_fastened": True,
                     "ac_on": True,
-                    "gear": "D" if is_moving else "P"
+                    "gear": gear_state
                 }
             }
 

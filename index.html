@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SDV Telemetry & Navigation - Košice</title>
+    <title>SDV Telemetry & OTA Management - Košice</title>
     
     <!-- Tailwind CSS & Phosphor Icons -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -52,7 +52,7 @@
             <i class="ph-fill ph-car-profile text-3xl text-cyan-400"></i>
             <div>
                 <h1 class="text-xl font-bold tracking-wider text-slate-100 uppercase">SDV Platform Košice</h1>
-                <p class="text-xs text-slate-400">Architecture: Adaptive AUTOSAR SOA Prototype</p>
+                <p class="text-xs text-slate-400">Architecture: Adaptive AUTOSAR SOA & SOTA</p>
             </div>
         </div>
         
@@ -91,7 +91,7 @@
     <!-- Main Dashboard Grid -->
     <main class="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-6 flex-grow">
         
-        <!-- LEFT COLUMN: Power & Security -->
+        <!-- LEFT COLUMN: Power, Security & SW Version -->
         <div class="flex flex-col gap-6">
             <div class="glass-panel rounded-3xl p-6 relative overflow-hidden">
                 <h2 class="text-sm uppercase tracking-widest text-slate-400 mb-6">Energy System</h2>
@@ -115,7 +115,10 @@
             </div>
 
             <div class="glass-panel rounded-3xl p-6">
-                <h2 class="text-sm uppercase tracking-widest text-slate-400 mb-4">Security & Comfort</h2>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm uppercase tracking-widest text-slate-400">Software Manifest</h2>
+                    <span id="ui-sw-version" class="text-xs font-mono font-bold px-3 py-1 bg-cyan-950/60 border border-cyan-800 text-cyan-400 rounded-full">v1.0.0-STD</span>
+                </div>
                 <div class="grid grid-cols-2 gap-4">
                     <!-- Doors -->
                     <div id="stat-doors" class="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-800/50 border border-slate-700/50 transition-colors text-center">
@@ -227,37 +230,73 @@
 
     </main>
 
-    <!-- FAULT INJECTION CONTROL PANEL -->
-    <footer class="w-full max-w-7xl mt-8 glass-panel p-6 rounded-3xl">
-        <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-4">
-            <div>
-                <h3 class="text-sm uppercase tracking-widest text-slate-300 font-bold flex items-center gap-2">
-                    <i class="ph-bold ph-bug text-amber-400"></i> Fault Injection & Diagnostics Panel
-                </h3>
-                <p class="text-xs text-slate-400 mt-0.5">Simulation of emergency conditions via reverse MQTT channel (<span class="font-mono text-cyan-400" id="command-topic-label">sdv/commands/car_001</span>)</p>
+    <!-- FAULT INJECTION & OTA MANAGEMENT PANEL -->
+    <footer class="w-full max-w-7xl mt-8 glass-panel p-6 rounded-3xl flex flex-col gap-6">
+        
+        <!-- OTA Progress Banner (Hidden by default) -->
+        <div id="ota-banner" class="hidden p-4 bg-cyan-950/40 border border-cyan-500/50 rounded-2xl flex flex-col gap-2">
+            <div class="flex justify-between items-center">
+                <span class="text-xs text-cyan-400 font-bold uppercase tracking-wider flex items-center gap-2">
+                    <i class="ph-bold ph-cloud-arrow-down text-lg animate-bounce"></i> Software-Over-The-Air Flashing...
+                </span>
+                <span id="ota-progress-text" class="text-xs font-mono font-bold text-cyan-400">0%</span>
+            </div>
+            <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                <div id="ota-progress-bar" class="h-full bg-cyan-400 transition-all duration-300" style="width: 0%;"></div>
             </div>
         </div>
-        
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <button onclick="sendFaultCommand('puncture_fl')" class="px-4 py-3 bg-red-950/40 hover:bg-red-900/60 border border-red-800/60 text-red-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
-                <i class="ph-bold ph-warning-circle text-lg"></i>
-                <span>Tire Puncture (FL)</span>
-            </button>
 
-            <button onclick="sendFaultCommand('overheat_battery')" class="px-4 py-3 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/60 text-amber-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
-                <i class="ph-bold ph-thermometer-hot text-lg"></i>
-                <span>Battery Overheat</span>
-            </button>
+        <!-- Section 1: OTA Firmware Updates -->
+        <div>
+            <h3 class="text-sm uppercase tracking-widest text-slate-300 font-bold flex items-center gap-2 mb-3">
+                <i class="ph-bold ph-cloud-arrow-up text-cyan-400 text-lg"></i> OTA Cloud Firmware Deployment (SOTA)
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button onclick="sendFaultCommand('ota_sport')" class="px-4 py-3 bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-700/60 text-cyan-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-lightning text-lg"></i>
+                    <span>Deploy v1.1.0-SPORT (75 km/h)</span>
+                </button>
 
-            <button onclick="sendFaultCommand('open_door')" class="px-4 py-3 bg-purple-950/40 hover:bg-purple-900/60 border border-purple-800/60 text-purple-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
-                <i class="ph-bold ph-door-open text-lg"></i>
-                <span>Open Door</span>
-            </button>
+                <button onclick="sendFaultCommand('ota_eco')" class="px-4 py-3 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-700/60 text-emerald-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-leaf text-lg"></i>
+                    <span>Deploy v1.2.0-ECO (40 km/h)</span>
+                </button>
 
-            <button onclick="sendFaultCommand('reset_faults')" class="px-4 py-3 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/60 text-emerald-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
-                <i class="ph-bold ph-check-circle text-lg"></i>
-                <span>Reset Faults</span>
-            </button>
+                <button onclick="sendFaultCommand('ota_std')" class="px-4 py-3 bg-slate-800/60 hover:bg-slate-700/60 border border-slate-600 text-slate-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-arrow-counter-clockwise text-lg"></i>
+                    <span>Revert v1.0.0-STD</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="w-full h-[1px] bg-slate-800"></div>
+
+        <!-- Section 2: Fault Injection -->
+        <div>
+            <h3 class="text-sm uppercase tracking-widest text-slate-300 font-bold flex items-center gap-2 mb-3">
+                <i class="ph-bold ph-bug text-amber-400 text-lg"></i> Fault Injection & Diagnostics Panel
+            </h3>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <button onclick="sendFaultCommand('puncture_fl')" class="px-4 py-3 bg-red-950/40 hover:bg-red-900/60 border border-red-800/60 text-red-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-warning-circle text-lg"></i>
+                    <span>Tire Puncture (FL)</span>
+                </button>
+
+                <button onclick="sendFaultCommand('overheat_battery')" class="px-4 py-3 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/60 text-amber-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-thermometer-hot text-lg"></i>
+                    <span>Battery Overheat</span>
+                </button>
+
+                <button onclick="sendFaultCommand('open_door')" class="px-4 py-3 bg-purple-950/40 hover:bg-purple-900/60 border border-purple-800/60 text-purple-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-door-open text-lg"></i>
+                    <span>Open Door</span>
+                </button>
+
+                <button onclick="sendFaultCommand('reset_faults')" class="px-4 py-3 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/60 text-emerald-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-check-circle text-lg"></i>
+                    <span>Reset Faults</span>
+                </button>
+            </div>
         </div>
     </footer>
 
@@ -283,8 +322,12 @@
             temp: document.getElementById('ui-temp'),
             odo: document.getElementById('ui-odo'),
             latLng: document.getElementById('ui-latlng'),
+            swVersion: document.getElementById('ui-sw-version'),
             driverState: document.getElementById('ui-driver-state'),
             driverDot: document.getElementById('ui-driver-dot'),
+            otaBanner: document.getElementById('ota-banner'),
+            otaProgressText: document.getElementById('ota-progress-text'),
+            otaProgressBar: document.getElementById('ota-progress-bar'),
             tireFl: document.getElementById('ui-tire-fl'),
             tireFr: document.getElementById('ui-tire-fr'),
             tireRl: document.getElementById('ui-tire-rl'),
@@ -365,12 +408,24 @@
         }
 
         function updateDashboard(data) {
+            if (data.sw_version) {
+                ui.swVersion.innerText = data.sw_version;
+            }
+
+            if (data.ota_status === "UPDATING") {
+                ui.otaBanner.classList.remove('hidden');
+                ui.otaProgressText.innerText = `${data.ota_progress}%`;
+                ui.otaProgressBar.style.width = `${data.ota_progress}%`;
+            } else {
+                ui.otaBanner.classList.add('hidden');
+            }
+
             if (data.driver_state) {
                 ui.driverState.innerText = `AI: ${data.driver_state}`;
                 if (data.driver_state === 'EMERGENCY STOP' || data.driver_state === 'RED LIGHT STOP') {
                     ui.driverState.className = "text-[11px] font-mono font-bold text-red-400 uppercase";
                     ui.driverDot.className = "w-2 h-2 rounded-full bg-red-400 animate-ping";
-                } else if (data.driver_state === 'CORNERING') {
+                } else if (data.driver_state === 'CORNERING' || data.driver_state === 'OTA FLASHING') {
                     ui.driverState.className = "text-[11px] font-mono font-bold text-amber-400 uppercase";
                     ui.driverDot.className = "w-2 h-2 rounded-full bg-amber-400 animate-ping";
                 } else {

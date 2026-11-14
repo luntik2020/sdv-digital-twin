@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SDV Telemetry & Navigation Dashboard</title>
+    
+    <!-- Tailwind CSS & Icons -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+    <!-- Leaflet.js (GPS Map) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0f19;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(14, 165, 233, 0.1) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(34, 197, 94, 0.05) 0px, transparent 50%);
+            color: #f8fafc;
+        }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.4);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+        .glow-cyan { filter: drop-shadow(0 0 12px rgba(14, 165, 233, 0.7)); }
+        .glow-red { filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.8)); }
+        /* Темная стилизация тайлов Leaflet */
+        .leaflet-tile { filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3); }
+        .leaflet-container { background: #0b0f19 !important; border-radius: 1.5rem; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-between p-4 md:p-8 overflow-x-hidden">
+
+    <!-- Header & Fleet Selector -->
+    <header class="w-full max-w-7xl flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+        <div class="flex items-center gap-4">
+            <i class="ph-fill ph-car-profile text-3xl text-cyan-400"></i>
+            <div>
+                <h1 class="text-xl font-bold tracking-wider text-slate-100 uppercase">SDV Core Platform</h1>
+                <p class="text-xs text-slate-400">Architecture: Adaptive AUTOSAR SOA Prototype</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-3 bg-slate-800/60 p-2 rounded-2xl border border-slate-700">
+            <span class="text-xs text-slate-400 pl-2 uppercase tracking-wider font-semibold">Active Vehicle:</span>
+            <select id="fleet-select" onchange="changeVehicle(this.value)" class="bg-slate-900 text-cyan-400 font-mono font-bold text-sm px-4 py-1.5 rounded-xl border border-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                <option value="car_001">car_001 (Tesla Model S)</option>
+                <option value="car_002">car_002 (CyberTruck)</option>
+                <option value="car_003">car_003 (Model Y)</option>
+            </select>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <div class="text-center sm:text-right">
+                <p class="text-xs text-slate-400 uppercase tracking-widest">MQTT Status</p>
+                <div class="flex items-center justify-center sm:justify-end gap-2 mt-1">
+                    <div id="mqtt-dot" class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></div>
+                    <span id="mqtt-text" class="text-sm font-semibold text-red-500">Disconnected</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Alert / Geofence Banner -->
+    <div id="geofence-alert" class="hidden w-full max-w-7xl mb-6 p-4 bg-amber-950/40 border border-amber-500/50 rounded-2xl flex items-center justify-between backdrop-blur-md">
+        <div class="flex items-center gap-3">
+            <i class="ph-bold ph-shield-warning text-amber-400 text-2xl animate-bounce"></i>
+            <div>
+                <div class="text-xs text-amber-400 font-bold uppercase tracking-wider">Adaptive AUTOSAR Safety Alert</div>
+                <div id="geofence-alert-text" class="text-sm text-slate-200">Внимание: Автомобиль вошел в геозону ограничения скорости (50 км/ч).</div>
+            </div>
+        </div>
+        <span class="text-xs text-slate-500 font-mono hidden sm:inline">AUTOSAR.GeofenceService</span>
+    </div>
+
+    <!-- Main Dashboard Grid -->
+    <main class="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-6 flex-grow">
+        
+        <!-- LEFT COLUMN: Power & Security -->
+        <div class="flex flex-col gap-6">
+            <div class="glass-panel rounded-3xl p-6 relative overflow-hidden">
+                <h2 class="text-sm uppercase tracking-widest text-slate-400 mb-6">Energy System</h2>
+                <div class="flex justify-between items-end mb-2 relative z-10">
+                    <span class="text-4xl font-bold" id="ui-battery">--<span class="text-xl text-slate-400">%</span></span>
+                    <span class="text-lg text-emerald-400 font-mono" id="ui-range">-- km</span>
+                </div>
+                <div class="w-full h-3 bg-slate-800 rounded-full overflow-hidden mb-6 shadow-inner relative z-10">
+                    <div id="ui-battery-bar" class="h-full bg-gradient-to-r from-emerald-500 to-cyan-400 rounded-full transition-all duration-700 ease-out" style="width: 0%;"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-4 relative z-10">
+                    <div class="bg-slate-800/50 rounded-2xl p-4">
+                        <p class="text-xs text-slate-400 mb-1">Battery Temp</p>
+                        <p class="text-lg font-semibold"><span id="ui-temp">--</span><span class="text-slate-500">°C</span></p>
+                    </div>
+                    <div class="bg-slate-800/50 rounded-2xl p-4">
+                        <p class="text-xs text-slate-400 mb-1">Odometer</p>
+                        <p class="text-lg font-semibold"><span id="ui-odo">--</span><span class="text-slate-500"> km</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-3xl p-6">
+                <h2 class="text-sm uppercase tracking-widest text-slate-400 mb-4">Security & Comfort</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div id="stat-doors" class="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-800/50 border border-slate-700/50 transition-colors text-center">
+                        <i id="icon-doors" class="ph ph-door-open text-3xl mb-1 text-slate-400"></i>
+                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Doors</span>
+                        <span class="text-xs font-semibold uppercase tracking-wider" id="text-doors">Closed</span>
+                    </div>
+                    <div id="stat-belts" class="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-800/50 border border-slate-700/50 transition-colors text-center">
+                        <i id="icon-belts" class="ph ph-seatbelt text-3xl mb-1 text-slate-400"></i>
+                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Seatbelts</span>
+                        <span class="text-xs font-semibold uppercase tracking-wider" id="text-belts">Fastened</span>
+                    </div>
+                    <div id="stat-ac" class="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-800/50 border border-slate-700/50 transition-colors text-center">
+                        <i id="icon-ac" class="ph ph-wind text-3xl mb-1 text-slate-400"></i>
+                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Climate</span>
+                        <span class="text-xs font-semibold uppercase tracking-wider" id="text-ac">AC On</span>
+                    </div>
+                    <div id="stat-gear" class="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-800/50 border border-slate-700/50 transition-colors text-center">
+                        <i id="icon-gear" class="ph ph-steering-wheel text-3xl mb-1 text-slate-400"></i>
+                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Drivetrain</span>
+                        <span class="text-xs font-semibold uppercase tracking-wider" id="text-gear">Drive</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CENTER COLUMN: Speedometer & Live Map -->
+        <div class="flex flex-col gap-6">
+            <!-- Speedometer Card -->
+            <div class="glass-panel rounded-3xl p-6 flex flex-col items-center justify-center relative">
+                <div class="relative w-full max-w-[240px] aspect-square flex items-center justify-center mx-auto">
+                    <svg viewBox="0 0 320 320" class="absolute inset-0 w-full h-full transform -rotate-[225deg]">
+                        <circle cx="160" cy="160" r="140" fill="none" stroke="#1e293b" stroke-width="18" stroke-linecap="round" stroke-dasharray="660 220" stroke-dashoffset="0"></circle>
+                        <circle id="ui-speed-arc" cx="160" cy="160" r="140" fill="none" stroke="#0ea5e9" stroke-width="18" stroke-linecap="round" stroke-dasharray="660 220" stroke-dashoffset="660" class="transition-all duration-300 ease-out glow-cyan"></circle>
+                    </svg>
+                    <div class="absolute flex flex-col items-center justify-center">
+                        <span id="ui-speed" class="text-6xl font-bold tracking-tighter text-white leading-none">0</span>
+                        <span class="text-xs text-cyan-500 font-semibold tracking-widest uppercase mt-1">km/h</span>
+                    </div>
+                </div>
+
+                <div class="mt-4 text-center">
+                    <div class="inline-flex items-center justify-center gap-3 px-5 py-2 bg-slate-800/50 rounded-full border border-slate-700/50">
+                        <span class="text-xs font-semibold text-slate-400">GEAR</span>
+                        <div class="w-[1px] h-3 bg-slate-600"></div>
+                        <span id="ui-center-gear" class="text-xl font-bold text-emerald-400">P</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GPS Live Map Card -->
+            <div class="glass-panel rounded-3xl p-4 flex flex-col justify-between h-[280px] relative overflow-hidden">
+                <div class="flex justify-between items-center mb-2 px-2">
+                    <span class="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                        <i class="ph-bold ph-navigation-arrow text-cyan-400"></i> Live GPS & Geofence
+                    </span>
+                    <span id="ui-latlng" class="text-[11px] font-mono text-cyan-400">50.4501, 30.5234</span>
+                </div>
+                <!-- Контейнер карты -->
+                <div id="map" class="w-full h-full rounded-2xl z-0"></div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: TPMS -->
+        <div class="glass-panel rounded-3xl p-6 flex flex-col items-center justify-center relative">
+            <h2 class="absolute top-6 left-6 text-sm uppercase tracking-widest text-slate-400">Chassis & Tires</h2>
+            <div class="text-xs text-slate-500 absolute top-6 right-6">Pressure (Bar)</div>
+            
+            <div class="relative w-40 h-80 mt-14 mb-4 flex items-center justify-center mx-auto">
+                <div class="absolute inset-0 m-auto w-24 h-64 border-2 border-slate-600 rounded-[3rem] opacity-70 bg-gradient-to-b from-slate-800/20 to-slate-800/0"></div>
+                <div class="absolute inset-0 m-auto w-20 h-12 top-16 border border-slate-700 rounded-t-xl bg-slate-800/30"></div>
+                <div class="absolute inset-0 m-auto w-20 h-10 bottom-16 border border-slate-700 rounded-b-xl bg-slate-800/30"></div>
+                
+                <div class="absolute top-12 -left-2 w-4 h-12 bg-slate-800 border border-slate-600 rounded-md"></div>
+                <div class="absolute top-14 -left-16 flex flex-col items-end">
+                    <span id="ui-tire-fl" class="text-lg font-mono font-bold text-white">-.--</span>
+                </div>
+                <div class="absolute top-12 -right-2 w-4 h-12 bg-slate-800 border border-slate-600 rounded-md"></div>
+                <div class="absolute top-14 -right-16 flex flex-col items-start">
+                    <span id="ui-tire-fr" class="text-lg font-mono font-bold text-white">-.--</span>
+                </div>
+                <div class="absolute bottom-12 -left-2 w-4 h-12 bg-slate-800 border border-slate-600 rounded-md"></div>
+                <div class="absolute bottom-14 -left-16 flex flex-col items-end">
+                    <span id="ui-tire-rl" class="text-lg font-mono font-bold text-white">-.--</span>
+                </div>
+                <div class="absolute bottom-12 -right-2 w-4 h-12 bg-slate-800 border border-slate-600 rounded-md"></div>
+                <div class="absolute bottom-14 -right-16 flex flex-col items-start">
+                    <span id="ui-tire-rr" class="text-lg font-mono font-bold text-white">-.--</span>
+                </div>
+            </div>
+            
+            <div class="mt-auto w-full pt-4">
+                <div class="flex justify-between text-xs text-slate-400 mb-1">
+                    <span>Tire Health</span>
+                    <span id="tire-health-text" class="text-emerald-400 font-semibold">Optimal</span>
+                </div>
+                <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div id="tire-health-bar" class="h-full bg-emerald-500 rounded-full w-full"></div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- FAULT INJECTION CONTROL PANEL -->
+    <footer class="w-full max-w-7xl mt-8 glass-panel p-6 rounded-3xl">
+        <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-4">
+            <div>
+                <h3 class="text-sm uppercase tracking-widest text-slate-300 font-bold flex items-center gap-2">
+                    <i class="ph-bold ph-bug text-amber-400"></i> Fault Injection & Diagnostics Panel
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">Симуляция нештатных ситуаций через обратный канал MQTT (<span class="font-mono text-cyan-400" id="command-topic-label">sdv/commands/car_001</span>)</p>
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <button onclick="sendFaultCommand('puncture_fl')" class="px-4 py-3 bg-red-950/40 hover:bg-red-900/60 border border-red-800/60 text-red-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                <i class="ph-bold ph-warning-circle text-lg"></i>
+                <span>Прокол шины (FL)</span>
+            </button>
+
+            <button onclick="sendFaultCommand('overheat_battery')" class="px-4 py-3 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/60 text-amber-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                <i class="ph-bold ph-thermometer-hot text-lg"></i>
+                <span>Перегрев аккумулятора</span>
+            </button>
+
+            <button onclick="sendFaultCommand('open_door')" class="px-4 py-3 bg-purple-950/40 hover:bg-purple-900/60 border border-purple-800/60 text-purple-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                <i class="ph-bold ph-door-open text-lg"></i>
+                <span>Открыть дверь</span>
+            </button>
+
+            <button onclick="sendFaultCommand('reset_faults')" class="px-4 py-3 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/60 text-emerald-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                <i class="ph-bold ph-check-circle text-lg"></i>
+                <span>Сбросить сбои</span>
+            </button>
+        </div>
+    </footer>
+
+    <!-- JavaScript & Map Logic -->
+    <script>
+        const BROKER_URL = 'wss://broker.emqx.io:8084/mqtt';
+        let currentVehicleId = 'car_001';
+        let client;
+        let map, carMarker, geofenceCircle;
+
+        // Координаты центра Геозоны (Зона ограничения скорости)
+        const GEOFENCE_CENTER = [50.4520, 30.5260];
+        const GEOFENCE_RADIUS_METERS = 400;
+
+        const ui = {
+            mqttDot: document.getElementById('mqtt-dot'),
+            mqttText: document.getElementById('mqtt-text'),
+            speed: document.getElementById('ui-speed'),
+            speedArc: document.getElementById('ui-speed-arc'),
+            battery: document.getElementById('ui-battery'),
+            batteryBar: document.getElementById('ui-battery-bar'),
+            range: document.getElementById('ui-range'),
+            temp: document.getElementById('ui-temp'),
+            odo: document.getElementById('ui-odo'),
+            latLng: document.getElementById('ui-latlng'),
+            tireFl: document.getElementById('ui-tire-fl'),
+            tireFr: document.getElementById('ui-tire-fr'),
+            tireRl: document.getElementById('ui-tire-rl'),
+            tireRr: document.getElementById('ui-tire-rr'),
+            centerGear: document.getElementById('ui-center-gear'),
+            doors: { el: document.getElementById('stat-doors'), icon: document.getElementById('icon-doors'), text: document.getElementById('text-doors') },
+            belts: { el: document.getElementById('stat-belts'), icon: document.getElementById('icon-belts'), text: document.getElementById('text-belts') },
+            ac: { el: document.getElementById('stat-ac'), icon: document.getElementById('icon-ac'), text: document.getElementById('text-ac') },
+            gear: { el: document.getElementById('stat-gear'), icon: document.getElementById('icon-gear'), text: document.getElementById('text-gear') },
+        };
+
+        function initMap() {
+            map = L.map('map', { zoomControl: false }).setView([50.4501, 30.5234], 14);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap'
+            }).addTo(map);
+
+            // Рисуем Геозону (Красный круговой контур)
+            geofenceCircle = L.circle(GEOFENCE_CENTER, {
+                color: '#f59e0b',
+                fillColor: '#f59e0b',
+                fillOpacity: 0.15,
+                radius: GEOFENCE_RADIUS_METERS
+            }).addTo(map);
+
+            // Создаем синий неоновый маркер машины
+            const carIcon = L.divIcon({
+                className: 'custom-car-icon',
+                html: `<div class="w-4 h-4 bg-cyan-400 rounded-full border-2 border-white shadow-[0_0_12px_rgba(34,211,238,1)]"></div>`,
+                iconSize: [16, 16]
+            });
+
+            carMarker = L.marker([50.4501, 30.5234], { icon: carIcon }).addTo(map);
+        }
+
+        function initMQTT() {
+            ui.mqttText.innerText = "Connecting...";
+            ui.mqttDot.className = "w-2.5 h-2.5 rounded-full bg-yellow-400 animate-pulse";
+            
+            client = mqtt.connect(BROKER_URL);
+
+            client.on('connect', () => {
+                ui.mqttText.innerText = "Connected";
+                ui.mqttText.className = "text-sm font-semibold text-emerald-400";
+                ui.mqttDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]";
+                client.subscribe('sdv/telemetry/+');
+            });
+
+            client.on('message', (topic, message) => {
+                try {
+                    const data = JSON.parse(message.toString());
+                    if (data.vehicle_id === currentVehicleId) {
+                        updateDashboard(data);
+                    }
+                } catch (e) {
+                    console.error('JSON Error:', e);
+                }
+            });
+
+            client.on('error', () => {
+                ui.mqttText.innerText = "Error";
+                ui.mqttText.className = "text-sm font-semibold text-red-500";
+                ui.mqttDot.className = "w-2.5 h-2.5 rounded-full bg-red-500";
+            });
+        }
+
+        function changeVehicle(newCarId) {
+            currentVehicleId = newCarId;
+            document.getElementById('command-topic-label').innerText = `sdv/commands/${currentVehicleId}`;
+        }
+
+        function sendFaultCommand(commandName) {
+            if (client && client.connected) {
+                const topic = `sdv/commands/${currentVehicleId}`;
+                const payload = JSON.stringify({ command: commandName, timestamp: Date.now() });
+                client.publish(topic, payload);
+            }
+        }
+
+        function updateDashboard(data) {
+            // Обновление GPS Карты
+            if (data.location) {
+                const lat = data.location.lat;
+                const lng = data.location.lng;
+                
+                ui.latLng.innerText = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                carMarker.setLatLng([lat, lng]);
+                map.panTo([lat, lng]);
+
+                // Проверка Геозоны (Дистанция от центра геозоны в метрах)
+                const carLatLng = L.latLng(lat, lng);
+                const distance = carLatLng.distanceTo(L.latLng(GEOFENCE_CENTER));
+                const geofenceAlert = document.getElementById('geofence-alert');
+
+                if (distance <= GEOFENCE_RADIUS_METERS) {
+                    geofenceAlert.classList.remove('hidden');
+                } else {
+                    geofenceAlert.classList.add('hidden');
+                }
+            }
+
+            if(data.speed_kmh !== undefined) {
+                const speed = Math.max(0, data.speed_kmh);
+                ui.speed.innerText = Math.round(speed);
+                const pct = Math.min(1, speed / 160);
+                ui.speedArc.style.strokeDashoffset = 660 - (pct * 660);
+                
+                if(speed > 130) {
+                    ui.speedArc.setAttribute('stroke', '#ef4444');
+                    ui.speedArc.classList.replace('glow-cyan', 'glow-red');
+                } else {
+                    ui.speedArc.setAttribute('stroke', '#0ea5e9');
+                    ui.speedArc.classList.remove('glow-red');
+                    ui.speedArc.classList.add('glow-cyan');
+                }
+            }
+
+            if(data.battery_pct !== undefined) {
+                ui.battery.innerHTML = `${Math.round(data.battery_pct)}<span class="text-xl text-slate-400">%</span>`;
+                ui.batteryBar.style.width = `${data.battery_pct}%`;
+            }
+            if(data.range_km !== undefined) ui.range.innerText = `${Math.round(data.range_km)} km`;
+            
+            if(data.battery_temp_c !== undefined) {
+                ui.temp.innerText = data.battery_temp_c.toFixed(1);
+                ui.temp.parentElement.className = data.battery_temp_c > 60 ? "text-lg font-semibold text-red-400 animate-pulse" : "text-lg font-semibold text-white";
+            }
+            
+            if(data.odometer_km !== undefined) ui.odo.innerText = Math.round(data.odometer_km).toLocaleString();
+
+            if(data.tires_bar) {
+                const checkTire = (val, el) => {
+                    el.innerText = val.toFixed(2);
+                    el.className = (val < 2.0 || val > 2.5) ? "text-lg font-mono font-bold text-red-400 animate-pulse" : "text-lg font-mono font-bold text-white";
+                };
+                checkTire(data.tires_bar.fl, ui.tireFl);
+                checkTire(data.tires_bar.fr, ui.tireFr);
+                checkTire(data.tires_bar.rl, ui.tireRl);
+                checkTire(data.tires_bar.rr, ui.tireRr);
+
+                const hasTireFault = Object.values(data.tires_bar).some(val => val < 2.0 || val > 2.5);
+                document.getElementById('tire-health-text').innerText = hasTireFault ? "Warning: Pressure Low" : "Optimal";
+                document.getElementById('tire-health-text').className = hasTireFault ? "text-red-400 font-semibold" : "text-emerald-400 font-semibold";
+                document.getElementById('tire-health-bar').className = hasTireFault ? "h-full bg-red-500 rounded-full w-full" : "h-full bg-emerald-500 rounded-full w-full";
+            }
+
+            const updateWidget = (widget, isActive, activeIcon, inactiveIcon, activeText, inactiveText, isWarning = false) => {
+                widget.icon.className = `text-3xl mb-1 ${isActive ? (isWarning ? 'text-red-400' : 'text-emerald-400') : 'text-slate-500'} ${isActive ? activeIcon : inactiveIcon}`;
+                widget.text.innerText = isActive ? activeText : inactiveText;
+                widget.text.className = `text-xs font-semibold uppercase tracking-wider ${isActive ? (isWarning ? 'text-red-400' : 'text-emerald-400') : 'text-slate-500'}`;
+                widget.el.className = `flex flex-col items-center justify-center p-4 rounded-2xl border transition-colors ${isActive ? (isWarning ? 'bg-red-500/10 border-red-500/30' : 'bg-emerald-500/10 border-emerald-500/30') : 'bg-slate-800/50 border-slate-700/50'}`;
+            };
+
+            if(data.status) {
+                updateWidget(ui.doors, !data.status.doors_closed, 'ph-door-open', 'ph-door', 'Open', 'Closed', true);
+                updateWidget(ui.belts, !data.status.seatbelts_fastened, 'ph-seatbelt', 'ph-seatbelt', 'Unbuckled', 'Fastened', true);
+                updateWidget(ui.ac, data.status.ac_on, 'ph-wind animate-pulse', 'ph-wind', 'AC On', 'AC Off', false);
+                
+                const isDrive = data.status.gear === "D";
+                updateWidget(ui.gear, isDrive, 'ph-steering-wheel', 'ph-parking-circle', 'Drive', 'Park', false);
+                
+                ui.centerGear.innerText = data.status.gear;
+                ui.centerGear.className = `text-2xl font-bold ${isDrive ? 'text-cyan-400' : 'text-emerald-400'}`;
+            }
+        }
+
+        window.onload = () => {
+            initMap();
+            initMQTT();
+        };
+    </script>
+</body>
+</html>

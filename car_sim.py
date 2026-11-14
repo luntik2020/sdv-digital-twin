@@ -20,7 +20,7 @@ WAYPOINTS = {
         [21.2615, 48.7160],
         [21.2625, 48.7240],
         [21.2558, 48.7285],
-        [21.2531, 48.7245]  # Замыкание кольца
+        [21.2531, 48.7245]
     ],
     # car_002: Район TUKE (Watsonova -> Komenského -> Letná -> Watsonova)
     "car_002": [
@@ -28,7 +28,7 @@ WAYPOINTS = {
         [21.2510, 48.7370],
         [21.2545, 48.7350],
         [21.2480, 48.7280],
-        [21.2420, 48.7300]  # Замыкание кольца
+        [21.2420, 48.7300]
     ],
     # car_003: Южная магистраль Кошице (Južná trieda -> Rastislavova)
     "car_003": [
@@ -36,7 +36,7 @@ WAYPOINTS = {
         [21.2610, 48.7000],
         [21.2540, 48.7000],
         [21.2520, 48.7150],
-        [21.2580, 48.7140]  # Замыкание кольца
+        [21.2580, 48.7140]
     ]
 }
 
@@ -115,28 +115,59 @@ fleet = {
         "speed": 0.0, "target_speed": 50.0, "cruise_speed": 50.0,
         "battery": 95.0, "temp": 25.0, "odo": 15420.0, "faults": {},
         "route_points": fetch_osrm_road_geometry(WAYPOINTS["car_001"]),
-        "state": "CRUISING", "stop_timer": 0
+        "state": "CRUISING", "stop_timer": 0,
+        "sw_version": "v1.0.0-STD", "ota_status": "IDLE", "ota_progress": 0, "pending_ota": None
     },
     "car_002": {
         "speed": 40.0, "target_speed": 50.0, "cruise_speed": 55.0,
         "battery": 78.0, "temp": 29.0, "odo": 8410.0, "faults": {},
         "route_points": fetch_osrm_road_geometry(WAYPOINTS["car_002"]),
-        "state": "CRUISING", "stop_timer": 0
+        "state": "CRUISING", "stop_timer": 0,
+        "sw_version": "v1.0.0-STD", "ota_status": "IDLE", "ota_progress": 0, "pending_ota": None
     },
     "car_003": {
         "speed": 60.0, "target_speed": 70.0, "cruise_speed": 70.0,
         "battery": 34.0, "temp": 33.0, "odo": 41200.0, "faults": {},
         "route_points": fetch_osrm_road_geometry(WAYPOINTS["car_003"]),
-        "state": "CRUISING", "stop_timer": 0
+        "state": "CRUISING", "stop_timer": 0,
+        "sw_version": "v1.0.0-STD", "ota_status": "IDLE", "ota_progress": 0, "pending_ota": None
     }
 }
 
 prepare_fleet_routes(fleet)
 
+def process_ota_updates(car_id):
+    """ Обработчик Over-The-Air обновлений в реальном времени """
+    car = fleet[car_id]
+    if car["pending_ota"] and car["ota_status"] == "UPDATING":
+        car["ota_progress"] += 20  # +20% в секунду (процесс занимает 5 секунд)
+        if car["ota_progress"] >= 100:
+            ota_type = car["pending_ota"]
+            if ota_type == "ota_sport":
+                car["sw_version"] = "v1.1.0-SPORT"
+                car["cruise_speed"] = 75.0
+            elif ota_type == "ota_eco":
+                car["sw_version"] = "v1.2.0-ECO"
+                car["cruise_speed"] = 40.0
+            elif ota_type == "ota_std":
+                car["sw_version"] = "v1.0.0-STD"
+                car["cruise_speed"] = 50.0
+
+            car["ota_status"] = "SUCCESS"
+            car["ota_progress"] = 100
+            car["pending_ota"] = None
+            print(f"[OTA SUCCESS] {car_id} успешно обновлен до версии {car['sw_version']}!")
+
 def update_ai_driver_behavior(car_id):
     """ ИИ-контроллер вождения и реакция на аварийные события """
     car = fleet[car_id]
     
+    # Обработка активной установки OTA
+    if car["ota_status"] == "UPDATING":
+        car["target_speed"] = max(15.0, car["speed"] * 0.8)  # Безопасное замедление при прошивке
+        car["state"] = "OTA FLASHING"
+        return
+
     # 1. Приоритетный контроль критических неисправностей (Аварийная остановка ADAS)
     if car["faults"].get("overheat_battery") or car["faults"].get("puncture_fl"):
         car["target_speed"] = 0.0
@@ -191,7 +222,6 @@ def update_car_physics_and_position(car_id):
 
     speed_diff = car["target_speed"] - car["speed"]
     if speed_diff < 0:
-        # Постепенное аварийное торможение со скоростью 4.0 км/ч в секунду
         decel_rate = 4.0 if car["state"] == "EMERGENCY STOP" else 8.0
         car["speed"] = max(0.0, car["speed"] - decel_rate)
     elif speed_diff > 0:
@@ -222,8 +252,13 @@ def on_message(client, userdata, msg):
         command = payload.get("command")
 
         if car_id in fleet:
-            print(f"[FAULT INJECTION] {car_id} -> {command}")
-            if command == "puncture_fl":
+            print(f"[COMMAND RECEIVED] {car_id} -> {command}")
+            if command in ["ota_sport", "ota_eco", "ota_std"]:
+                fleet[car_id]["pending_ota"] = command
+                fleet[car_id]["ota_status"] = "UPDATING"
+                fleet[car_id]["ota_progress"] = 0
+                print(f"[OTA INITIATED] Старт загрузки OTA прошивки '{command}' для {car_id}")
+            elif command == "puncture_fl":
                 fleet[car_id]["faults"]["puncture_fl"] = True
             elif command == "overheat_battery":
                 fleet[car_id]["faults"]["overheat_battery"] = True
@@ -245,6 +280,7 @@ print("[READY] Симулятор автономных автомобилей з
 try:
     while True:
         for car_id, data in fleet.items():
+            process_ota_updates(car_id)
             update_ai_driver_behavior(car_id)
             lat, lng = update_car_physics_and_position(car_id)
 
@@ -261,7 +297,6 @@ try:
 
             doors_closed = False if data["faults"].get("open_door") else True
 
-            # Режим передачи КПП: P включается ТОЛЬКО когда машина полностью остановилась (speed == 0.0)
             if data["speed"] == 0.0 and (data["state"] == "EMERGENCY STOP" or len(data["faults"]) > 0):
                 gear_state = "P"
             else:
@@ -275,6 +310,9 @@ try:
                 "range_km": round(data["battery"] * 4.2, 1),
                 "odometer_km": round(data["odo"], 2),
                 "driver_state": data["state"],
+                "sw_version": data["sw_version"],
+                "ota_status": data["ota_status"],
+                "ota_progress": data["ota_progress"],
                 "location": {
                     "lat": round(lat, 6),
                     "lng": round(lng, 6)

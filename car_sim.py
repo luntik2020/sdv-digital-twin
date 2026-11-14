@@ -134,9 +134,16 @@ fleet = {
 prepare_fleet_routes(fleet)
 
 def update_ai_driver_behavior(car_id):
-    """ ИИ-контроллер вождения """
+    """ ИИ-контроллер вождения и реакция на аварийные события """
     car = fleet[car_id]
     
+    # 1. Приоритетный контроль критических неисправностей (Аварийная остановка ADAS)
+    if car["faults"].get("overheat_battery") or car["faults"].get("puncture_fl"):
+        car["target_speed"] = 0.0
+        car["state"] = "EMERGENCY STOP"
+        return
+
+    # 2. Остановка на красный свет светофора
     if car["stop_timer"] > 0:
         car["stop_timer"] -= 1
         car["target_speed"] = 0.0
@@ -163,11 +170,12 @@ def update_ai_driver_behavior(car_id):
         dot = max(-1.0, min(1.0, dot))
         angle = math.degrees(math.acos(dot))
 
+    # 3. Притормаживание на повороте
     if angle > 25.0:
         car["target_speed"] = 20.0
         car["state"] = "CORNERING"
     else:
-        # Уменьшена вероятность остановки до 0.8% в секунду (примерно раз в 2 минуты)
+        # Случайная остановка на светофоре (0.8% шанс в сек)
         if random.random() < 0.008:
             car["stop_timer"] = random.randint(4, 7)
             car["target_speed"] = 0.0
@@ -178,14 +186,16 @@ def update_ai_driver_behavior(car_id):
             car["state"] = "CRUISING"
 
 def update_car_physics_and_position(car_id):
-    """ Плавная физика и продвижение вперед по траектории """
+    """ Плавная физика торможения/разгона и расчет позиции """
     car = fleet[car_id]
 
     speed_diff = car["target_speed"] - car["speed"]
     if speed_diff < 0:
-        car["speed"] = max(0.0, car["speed"] - 12.0)  # Торможение
+        # При экстренном торможении гасим скорость быстрее
+        decel_rate = 18.0 if car["state"] == "EMERGENCY STOP" else 12.0
+        car["speed"] = max(0.0, car["speed"] - decel_rate)
     elif speed_diff > 0:
-        car["speed"] = min(car["target_speed"], car["speed"] + 5.0)  # Разгон
+        car["speed"] = min(car["target_speed"], car["speed"] + 5.0)
 
     if car["speed"] < 0.5 and car["target_speed"] == 0.0:
         car["speed"] = 0.0
@@ -251,8 +261,11 @@ try:
 
             doors_closed = False if data["faults"].get("open_door") else True
 
-            # КПП остается в D при временной остановке на светофоре
-            gear_state = "P" if len(data["faults"]) > 0 else "D"
+            # Режим передачи КПП: P включается ТОЛЬКО когда машина полностью остановилась (speed == 0) при аварии или парковке
+            if data["speed"] == 0.0 and (data["state"] == "EMERGENCY STOP" or len(data["faults"]) > 0):
+                gear_state = "P"
+            else:
+                gear_state = "D"
 
             telemetry_payload = {
                 "vehicle_id": car_id,

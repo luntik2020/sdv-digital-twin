@@ -32,7 +32,7 @@ WAYPOINTS = {
 }
 
 def fetch_osrm_road_geometry(coords):
-    """ Fetches actual road network geometry for Košice via OSRM """
+    """ Запрашивает реальную геометрию дорог OSRM через HTTPS """
     try:
         coord_str = ";".join([f"{c[0]},{c[1]}" for c in coords])
         url = f"https://router.project-osrm.org/route/v1/driving/{coord_str}?overview=full&geometries=geojson"
@@ -49,10 +49,10 @@ def fetch_osrm_road_geometry(coords):
             data = json.loads(response.read().decode())
             geometry = data['routes'][0]['geometry']['coordinates']
             pts = [[p[1], p[0]] for p in geometry] # lat, lng
-            print(f"[OSRM SUCCESS] Loaded {len(pts)} road geometry nodes.")
+            print(f"[OSRM SUCCESS] Загружено {len(pts)} точек дорожного графа.")
             return pts + pts[::-1][1:-1]
     except Exception as e:
-        print(f"[OSRM WARN] OSRM API unreachable ({e}). Using dense fallback grid.")
+        print(f"[OSRM WARN] OSRM недоступен ({e}). Применена локальная сетка.")
         dense_pts = []
         for i in range(len(coords)):
             p1 = coords[i]
@@ -65,7 +65,7 @@ def fetch_osrm_road_geometry(coords):
         return dense_pts
 
 def calculate_turn_angle(p1, p2, p3):
-    """ Calculates turn angle in degrees between three consecutive points """
+    """ Расчет угла поворота дороги в градусах """
     v1 = (p2[0] - p1[0], p2[1] - p1[1])
     v2 = (p3[0] - p2[0], p3[1] - p2[1])
     len1 = math.hypot(*v1)
@@ -76,7 +76,7 @@ def calculate_turn_angle(p1, p2, p3):
     dot = max(-1.0, min(1.0, dot))
     return math.degrees(math.acos(dot))
 
-print("[INIT] Loading Košice road network for Autonomous AI Agents...")
+print("[INIT] Запуск ИИ-симулятора автономного вождения...")
 
 fleet = {
     "car_001": {
@@ -103,13 +103,13 @@ fleet = {
 }
 
 def update_ai_driver_behavior(car_id):
-    """ Autonomous AI Driving Logic Engine """
+    """ Каждую секунду обновляет решения автопилота """
     car = fleet[car_id]
     route = car["route_points"]
     if not route or len(route) < 3:
         return
 
-    # Check if vehicle is stopped at red light / intersection
+    # 1. Если авто находится в режиме ожидания на красный светофор
     if car["stop_timer"] > 0:
         car["stop_timer"] -= 1
         car["target_speed"] = 0.0
@@ -123,34 +123,46 @@ def update_ai_driver_behavior(car_id):
 
     angle = calculate_turn_angle(p1, p2, p3)
 
-    # 1. Detect sharp turn ahead
-    if angle > 35.0:
-        car["target_speed"] = max(15.0, car["cruise_speed"] * 0.35)
+    # 2. Определение крутого поворота
+    if angle > 30.0:
+        car["target_speed"] = 18.0  # Снижаем скорость перед поворотом
         car["state"] = "CORNERING"
     else:
-        # 2. Random chance to encounter Red Light / Traffic Junction when switching segments
-        if car["segment_progress"] < 0.1 and random.random() < 0.08:
-            car["stop_timer"] = random.randint(3, 6) # Stop for 3-6 seconds
+        # 3. Случайное появление красного светофора / знака Стоп (шанс 10%)
+        if car["segment_progress"] < 0.15 and random.random() < 0.10:
+            car["stop_timer"] = random.randint(4, 7)  # Остановка на 4-7 сек
             car["target_speed"] = 0.0
             car["state"] = "RED LIGHT STOP"
-            print(f"[TRAFFIC AI] {car_id} stopped at Traffic Light / Intersection.")
-            return
+            print(f"[TRAFFIC AI] {car_id} остановился перед светофором.")
         else:
-            car["target_speed"] = car["cruise_speed"] + random.uniform(-3, 3)
+            car["target_speed"] = car["cruise_speed"] + random.uniform(-2, 2)
             car["state"] = "CRUISING"
 
-def update_car_position(car_id):
-    """ Moves car along route using smooth physics & AI speed controller """
+def update_car_physics_and_position(car_id):
+    """ Пересчитывает реальную физику скоростей и координату GPS """
     car = fleet[car_id]
+    
+    # Регулятор торможения и разгона
+    speed_diff = car["target_speed"] - car["speed"]
+    if speed_diff < 0:
+        # Интенсивное торможение до 0 км/ч (-15 км/ч в сек)
+        car["speed"] = max(0.0, car["speed"] - 15.0)
+    elif speed_diff > 0:
+        # Плавное ускорение (+6 км/ч в сек)
+        car["speed"] = min(car["target_speed"], car["speed"] + 6.0)
+
+    # Принудительное обнуление микро-скоростей
+    if car["speed"] < 0.8 and car["target_speed"] == 0.0:
+        car["speed"] = 0.0
+
     route = car["route_points"]
     if not route or len(route) < 2:
         return 48.7220, 21.2575
 
-    # Smooth Acceleration / Deceleration Controller (Max 6 km/h change per sec)
-    speed_diff = car["target_speed"] - car["speed"]
-    accel_limit = 6.0
-    if abs(speed_diff) > 0.1:
-        car["speed"] += max(-accel_limit, min(accel_limit, speed_diff))
+    # Если машина полностью остановилась — удерживаем позицию
+    if car["speed"] <= 0.0:
+        idx = car["curr_idx"]
+        return route[idx][0], route[idx][1]
 
     idx = car["curr_idx"]
     next_idx = (idx + 1) % len(route)
@@ -169,21 +181,9 @@ def update_car_position(car_id):
     speed_deg_sec = (car["speed"] / 3600.0) / 111.0
     car["segment_progress"] += speed_deg_sec / seg_len
 
-    while car["segment_progress"] >= 1.0:
-        car["segment_progress"] -= 1.0
+    if car["segment_progress"] >= 1.0:
+        car["segment_progress"] = 0.0
         car["curr_idx"] = (car["curr_idx"] + 1) % len(route)
-        update_ai_driver_behavior(car_id)
-
-        idx = car["curr_idx"]
-        next_idx = (idx + 1) % len(route)
-        p1 = route[idx]
-        p2 = route[next_idx]
-        d_lat = p2[0] - p1[0]
-        d_lng = p2[1] - p1[1]
-        seg_len = math.sqrt(d_lat**2 + d_lng**2)
-        if seg_len < 0.0000001:
-            car["segment_progress"] = 1.0
-            break
 
     prog = car["segment_progress"]
     lat = p1[0] + (p2[0] - p1[0]) * prog
@@ -192,7 +192,7 @@ def update_car_position(car_id):
     return lat, lng
 
 def on_connect(client, userdata, flags, rc, properties=None):
-    print("[MQTT] Simulator connected successfully. Listening for commands...")
+    print("[MQTT] Симулятор подключен к брокеру.")
     client.subscribe(COMMANDS_TOPIC)
 
 def on_message(client, userdata, msg):
@@ -213,7 +213,7 @@ def on_message(client, userdata, msg):
             elif command == "reset_faults":
                 fleet[car_id]["faults"] = {}
     except Exception as e:
-        print("[ERROR] Error processing incoming command:", e)
+        print("[ERROR] Ошибка команды:", e)
 
 client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, "SDV_Fleet_Simulator")
 client.on_connect = on_connect
@@ -221,18 +221,22 @@ client.on_message = on_message
 client.connect(BROKER_ADDRESS, PORT)
 client.loop_start()
 
-print("[READY] Autonomous Vehicle Simulator (Traffic AI & ADAS) running...")
+print("[READY] SDV Autonomous Simulator активно работает...")
 
 try:
     while True:
         for car_id, data in fleet.items():
+            # 1. Запуск логики ИИ каждый секунду
+            update_ai_driver_behavior(car_id)
+
+            # 2. Обновление физики и позиции
+            lat, lng = update_car_physics_and_position(car_id)
+
             is_moving = data["speed"] > 0.5
 
             if is_moving:
                 data["battery"] = max(0.0, data["battery"] - random.uniform(0.01, 0.03))
                 data["odo"] += (data["speed"] / 3600)
-
-            lat, lng = update_car_position(car_id)
 
             current_temp = 25.0 + (data["speed"] / 100) * 5.0 + random.uniform(0.1, 0.3)
             tire_fl = 1.2 if data["faults"].get("puncture_fl") else round(random.uniform(2.1, 2.3), 2)
@@ -248,7 +252,7 @@ try:
                 "battery_temp_c": round(current_temp, 1),
                 "range_km": round(data["battery"] * 4.2, 1),
                 "odometer_km": round(data["odo"], 2),
-                "driver_state": data["state"], # ADAS AI State
+                "driver_state": data["state"],
                 "location": {
                     "lat": round(lat, 6),
                     "lng": round(lng, 6)
@@ -273,6 +277,6 @@ try:
         time.sleep(1)
 
 except KeyboardInterrupt:
-    print("Simulator stopped.")
+    print("Симулятор остановлен.")
     client.loop_stop()
     client.disconnect()

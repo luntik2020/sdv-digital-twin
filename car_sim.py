@@ -10,10 +10,10 @@ BROKER_ADDRESS = "broker.emqx.io"
 PORT = 1883
 TELEMETRY_TOPIC_PREFIX = "sdv/telemetry/"
 COMMANDS_TOPIC = "sdv/commands/+"
+V2X_HAZARD_TOPIC = "sdv/v2x/hazard"
 
 # Замкнутые кольцевые маршруты по улицам Кошице [lng, lat]
 WAYPOINTS = {
-    # car_001: Кольцо вокруг Старого Города (Moyzesova -> Štúrova -> Protifašistických bojovníkov -> Hviezdoslavova)
     "car_001": [
         [21.2531, 48.7245],
         [21.2520, 48.7182],
@@ -22,7 +22,6 @@ WAYPOINTS = {
         [21.2558, 48.7285],
         [21.2531, 48.7245]
     ],
-    # car_002: Район TUKE (Watsonova -> Komenského -> Letná -> Watsonova)
     "car_002": [
         [21.2420, 48.7300],
         [21.2510, 48.7370],
@@ -30,7 +29,6 @@ WAYPOINTS = {
         [21.2480, 48.7280],
         [21.2420, 48.7300]
     ],
-    # car_003: Южная магистраль Кошице (Južná trieda -> Rastislavova)
     "car_003": [
         [21.2580, 48.7140],
         [21.2610, 48.7000],
@@ -116,31 +114,48 @@ fleet = {
         "battery": 95.0, "temp": 25.0, "odo": 15420.0, "faults": {},
         "route_points": fetch_osrm_road_geometry(WAYPOINTS["car_001"]),
         "state": "CRUISING", "stop_timer": 0,
-        "sw_version": "v1.0.0-STD", "ota_status": "IDLE", "ota_progress": 0, "pending_ota": None
+        "sw_version": "v1.0.0-STD", "ota_status": "IDLE", "ota_progress": 0, "pending_ota": None,
+        "dtc_codes": [], "v2x_warning": None
     },
     "car_002": {
         "speed": 40.0, "target_speed": 50.0, "cruise_speed": 55.0,
         "battery": 78.0, "temp": 29.0, "odo": 8410.0, "faults": {},
         "route_points": fetch_osrm_road_geometry(WAYPOINTS["car_002"]),
         "state": "CRUISING", "stop_timer": 0,
-        "sw_version": "v1.0.0-STD", "ota_status": "IDLE", "ota_progress": 0, "pending_ota": None
+        "sw_version": "v1.0.0-STD", "ota_status": "IDLE", "ota_progress": 0, "pending_ota": None,
+        "dtc_codes": [], "v2x_warning": None
     },
     "car_003": {
         "speed": 60.0, "target_speed": 70.0, "cruise_speed": 70.0,
         "battery": 34.0, "temp": 33.0, "odo": 41200.0, "faults": {},
         "route_points": fetch_osrm_road_geometry(WAYPOINTS["car_003"]),
         "state": "CRUISING", "stop_timer": 0,
-        "sw_version": "v1.0.0-STD", "ota_status": "IDLE", "ota_progress": 0, "pending_ota": None
+        "sw_version": "v1.0.0-STD", "ota_status": "IDLE", "ota_progress": 0, "pending_ota": None,
+        "dtc_codes": [], "v2x_warning": None
     }
 }
 
 prepare_fleet_routes(fleet)
 
+def update_dtc_diagnostics(car_id):
+    """ Сервис автодиагностики DTC (ISO 14229 UDS) """
+    car = fleet[car_id]
+    codes = []
+    
+    if car["faults"].get("overheat_battery"):
+        codes.append({"code": "P0A7F", "desc": "Hybrid Battery Pack Over Temperature Critical", "severity": "CRITICAL"})
+    if car["faults"].get("puncture_fl"):
+        codes.append({"code": "C0031", "desc": "Left Front Wheel Pressure Signal Abnormal", "severity": "WARNING"})
+    if car["faults"].get("open_door"):
+        codes.append({"code": "B1203", "desc": "Passenger Door Ajar Signal Active", "severity": "INFO"})
+
+    car["dtc_codes"] = codes
+
 def process_ota_updates(car_id):
     """ Обработчик Over-The-Air обновлений в реальном времени """
     car = fleet[car_id]
     if car["pending_ota"] and car["ota_status"] == "UPDATING":
-        car["ota_progress"] += 20  # +20% в секунду (процесс занимает 5 секунд)
+        car["ota_progress"] += 20
         if car["ota_progress"] >= 100:
             ota_type = car["pending_ota"]
             if ota_type == "ota_sport":
@@ -158,20 +173,30 @@ def process_ota_updates(car_id):
             car["pending_ota"] = None
             print(f"[OTA SUCCESS] {car_id} успешно обновлен до версии {car['sw_version']}!")
 
-def update_ai_driver_behavior(car_id):
-    """ ИИ-контроллер вождения и реакция на аварийные события """
+def update_ai_driver_behavior(car_id, client):
+    """ ИИ-контроллер вождения и трансляция V2X сигналов """
     car = fleet[car_id]
     
     # Обработка активной установки OTA
     if car["ota_status"] == "UPDATING":
-        car["target_speed"] = max(15.0, car["speed"] * 0.8)  # Безопасное замедление при прошивке
+        car["target_speed"] = max(15.0, car["speed"] * 0.8)
         car["state"] = "OTA FLASHING"
         return
 
-    # 1. Приоритетный контроль критических неисправностей (Аварийная остановка ADAS)
+    # 1. Приоритетный контроль критических неисправностей (Аварийная остановка + V2X вещание)
     if car["faults"].get("overheat_battery") or car["faults"].get("puncture_fl"):
         car["target_speed"] = 0.0
         car["state"] = "EMERGENCY STOP"
+        
+        # V2X трансляция сообщения об опасности другим авто
+        v2x_payload = {
+            "sender": car_id,
+            "event": "HAZARD_STOP",
+            "lat": car["route_points"][0][0],
+            "lng": car["route_points"][0][1],
+            "timestamp": time.time()
+        }
+        client.publish(V2X_HAZARD_TOPIC, json.dumps(v2x_payload))
         return
 
     # 2. Остановка на красный свет светофора
@@ -179,6 +204,12 @@ def update_ai_driver_behavior(car_id):
         car["stop_timer"] -= 1
         car["target_speed"] = 0.0
         car["state"] = "RED LIGHT STOP"
+        return
+
+    # 3. Реакция на внешние V2X предупреждения
+    if car["v2x_warning"]:
+        car["target_speed"] = 30.0  # Автоматический лимит V2X безопасного разъезда
+        car["state"] = "V2X SLOWDOWN"
         return
 
     curr_d = car["dist_along_route"]
@@ -201,12 +232,11 @@ def update_ai_driver_behavior(car_id):
         dot = max(-1.0, min(1.0, dot))
         angle = math.degrees(math.acos(dot))
 
-    # 3. Притормаживание на повороте
+    # 4. Притормаживание на повороте
     if angle > 25.0:
         car["target_speed"] = 20.0
         car["state"] = "CORNERING"
     else:
-        # Случайная остановка на светофоре (0.8% шанс в сек)
         if random.random() < 0.008:
             car["stop_timer"] = random.randint(4, 7)
             car["target_speed"] = 0.0
@@ -230,7 +260,6 @@ def update_car_physics_and_position(car_id):
     if car["speed"] < 0.5 and car["target_speed"] == 0.0:
         car["speed"] = 0.0
 
-    # Продвижение вперед в метрах за 1 секунду
     dist_moved = (car["speed"] / 3.6)
     car["dist_along_route"] = (car["dist_along_route"] + dist_moved) % car["total_dist"]
 
@@ -243,9 +272,18 @@ def update_car_physics_and_position(car_id):
 def on_connect(client, userdata, flags, rc, properties=None):
     print("[MQTT] Симулятор подключен к брокеру.")
     client.subscribe(COMMANDS_TOPIC)
+    client.subscribe(V2X_HAZARD_TOPIC)
 
 def on_message(client, userdata, msg):
     try:
+        if msg.topic == V2X_HAZARD_TOPIC:
+            payload = json.loads(msg.payload.decode())
+            sender = payload.get("sender")
+            for car_id in fleet:
+                if car_id != sender:
+                    fleet[car_id]["v2x_warning"] = f"HAZARD: Vehicle {sender} stopped!"
+            return
+
         topic_parts = msg.topic.split("/")
         car_id = topic_parts[-1]
         payload = json.loads(msg.payload.decode())
@@ -266,6 +304,7 @@ def on_message(client, userdata, msg):
                 fleet[car_id]["faults"]["open_door"] = True
             elif command == "reset_faults":
                 fleet[car_id]["faults"] = {}
+                fleet[car_id]["v2x_warning"] = None
     except Exception as e:
         print("[ERROR] Ошибка команды:", e)
 
@@ -280,8 +319,9 @@ print("[READY] Симулятор автономных автомобилей з
 try:
     while True:
         for car_id, data in fleet.items():
+            update_dtc_diagnostics(car_id)
             process_ota_updates(car_id)
-            update_ai_driver_behavior(car_id)
+            update_ai_driver_behavior(car_id, client)
             lat, lng = update_car_physics_and_position(car_id)
 
             is_moving = data["speed"] > 0.5
@@ -313,6 +353,8 @@ try:
                 "sw_version": data["sw_version"],
                 "ota_status": data["ota_status"],
                 "ota_progress": data["ota_progress"],
+                "dtc_codes": data["dtc_codes"],
+                "v2x_warning": data["v2x_warning"],
                 "location": {
                     "lat": round(lat, 6),
                     "lng": round(lng, 6)

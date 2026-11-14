@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SDV Telemetry & Navigation Dashboard</title>
+    <title>SDV Telemetry & Navigation - Košice</title>
     
-    <!-- Tailwind CSS & Icons -->
+    <!-- Tailwind CSS & Phosphor Icons -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
@@ -37,19 +37,17 @@
         }
         .glow-cyan { filter: drop-shadow(0 0 12px rgba(14, 165, 233, 0.7)); }
         .glow-red { filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.8)); }
-        /* Темная стилизация тайлов Leaflet */
-        .leaflet-tile { filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3); }
-        .leaflet-container { background: #0b0f19 !important; border-radius: 1.5rem; }
+        .leaflet-container { background: #0b0f19 !important; border-radius: 1rem; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col items-center justify-between p-4 md:p-8 overflow-x-hidden">
 
-    <!-- Header & Fleet Selector -->
+    <!-- Header & Vehicle Selector -->
     <header class="w-full max-w-7xl flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
         <div class="flex items-center gap-4">
             <i class="ph-fill ph-car-profile text-3xl text-cyan-400"></i>
             <div>
-                <h1 class="text-xl font-bold tracking-wider text-slate-100 uppercase">SDV Core Platform</h1>
+                <h1 class="text-xl font-bold tracking-wider text-slate-100 uppercase">SDV Platform Košice</h1>
                 <p class="text-xs text-slate-400">Architecture: Adaptive AUTOSAR SOA Prototype</p>
             </div>
         </div>
@@ -74,13 +72,13 @@
         </div>
     </header>
 
-    <!-- Alert / Geofence Banner -->
+    <!-- Geofence Alert Banner -->
     <div id="geofence-alert" class="hidden w-full max-w-7xl mb-6 p-4 bg-amber-950/40 border border-amber-500/50 rounded-2xl flex items-center justify-between backdrop-blur-md">
         <div class="flex items-center gap-3">
             <i class="ph-bold ph-shield-warning text-amber-400 text-2xl animate-bounce"></i>
             <div>
                 <div class="text-xs text-amber-400 font-bold uppercase tracking-wider">Adaptive AUTOSAR Safety Alert</div>
-                <div id="geofence-alert-text" class="text-sm text-slate-200">Внимание: Автомобиль вошел в геозону ограничения скорости (50 км/ч).</div>
+                <div id="geofence-alert-text" class="text-sm text-slate-200">Warning: Vehicle entered speed-restricted geofence (50 km/h).</div>
             </div>
         </div>
         <span class="text-xs text-slate-500 font-mono hidden sm:inline">AUTOSAR.GeofenceService</span>
@@ -115,21 +113,25 @@
             <div class="glass-panel rounded-3xl p-6">
                 <h2 class="text-sm uppercase tracking-widest text-slate-400 mb-4">Security & Comfort</h2>
                 <div class="grid grid-cols-2 gap-4">
+                    <!-- Doors -->
                     <div id="stat-doors" class="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-800/50 border border-slate-700/50 transition-colors text-center">
                         <i id="icon-doors" class="ph ph-door-open text-3xl mb-1 text-slate-400"></i>
                         <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Doors</span>
                         <span class="text-xs font-semibold uppercase tracking-wider" id="text-doors">Closed</span>
                     </div>
+                    <!-- Seatbelts -->
                     <div id="stat-belts" class="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-800/50 border border-slate-700/50 transition-colors text-center">
                         <i id="icon-belts" class="ph ph-seatbelt text-3xl mb-1 text-slate-400"></i>
                         <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Seatbelts</span>
                         <span class="text-xs font-semibold uppercase tracking-wider" id="text-belts">Fastened</span>
                     </div>
+                    <!-- AC -->
                     <div id="stat-ac" class="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-800/50 border border-slate-700/50 transition-colors text-center">
                         <i id="icon-ac" class="ph ph-wind text-3xl mb-1 text-slate-400"></i>
                         <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Climate</span>
                         <span class="text-xs font-semibold uppercase tracking-wider" id="text-ac">AC On</span>
                     </div>
+                    <!-- Drivetrain -->
                     <div id="stat-gear" class="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-800/50 border border-slate-700/50 transition-colors text-center">
                         <i id="icon-gear" class="ph ph-steering-wheel text-3xl mb-1 text-slate-400"></i>
                         <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Drivetrain</span>
@@ -139,9 +141,8 @@
             </div>
         </div>
 
-        <!-- CENTER COLUMN: Speedometer & Live Map -->
+        <!-- CENTER COLUMN: Speedometer & Live GPS Map -->
         <div class="flex flex-col gap-6">
-            <!-- Speedometer Card -->
             <div class="glass-panel rounded-3xl p-6 flex flex-col items-center justify-center relative">
                 <div class="relative w-full max-w-[240px] aspect-square flex items-center justify-center mx-auto">
                     <svg viewBox="0 0 320 320" class="absolute inset-0 w-full h-full transform -rotate-[225deg]">
@@ -167,11 +168,10 @@
             <div class="glass-panel rounded-3xl p-4 flex flex-col justify-between h-[280px] relative overflow-hidden">
                 <div class="flex justify-between items-center mb-2 px-2">
                     <span class="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
-                        <i class="ph-bold ph-navigation-arrow text-cyan-400"></i> Live GPS & Geofence
+                        <i class="ph-bold ph-navigation-arrow text-cyan-400"></i> Live GPS & Geofence (Košice)
                     </span>
-                    <span id="ui-latlng" class="text-[11px] font-mono text-cyan-400">50.4501, 30.5234</span>
+                    <span id="ui-latlng" class="text-[11px] font-mono text-cyan-400">48.7220, 21.2575</span>
                 </div>
-                <!-- Контейнер карты -->
                 <div id="map" class="w-full h-full rounded-2xl z-0"></div>
             </div>
         </div>
@@ -224,29 +224,29 @@
                 <h3 class="text-sm uppercase tracking-widest text-slate-300 font-bold flex items-center gap-2">
                     <i class="ph-bold ph-bug text-amber-400"></i> Fault Injection & Diagnostics Panel
                 </h3>
-                <p class="text-xs text-slate-400 mt-0.5">Симуляция нештатных ситуаций через обратный канал MQTT (<span class="font-mono text-cyan-400" id="command-topic-label">sdv/commands/car_001</span>)</p>
+                <p class="text-xs text-slate-400 mt-0.5">Simulation of emergency conditions via reverse MQTT channel (<span class="font-mono text-cyan-400" id="command-topic-label">sdv/commands/car_001</span>)</p>
             </div>
         </div>
         
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <button onclick="sendFaultCommand('puncture_fl')" class="px-4 py-3 bg-red-950/40 hover:bg-red-900/60 border border-red-800/60 text-red-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
                 <i class="ph-bold ph-warning-circle text-lg"></i>
-                <span>Прокол шины (FL)</span>
+                <span>Tire Puncture (FL)</span>
             </button>
 
             <button onclick="sendFaultCommand('overheat_battery')" class="px-4 py-3 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/60 text-amber-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
                 <i class="ph-bold ph-thermometer-hot text-lg"></i>
-                <span>Перегрев аккумулятора</span>
+                <span>Battery Overheat</span>
             </button>
 
             <button onclick="sendFaultCommand('open_door')" class="px-4 py-3 bg-purple-950/40 hover:bg-purple-900/60 border border-purple-800/60 text-purple-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
                 <i class="ph-bold ph-door-open text-lg"></i>
-                <span>Открыть дверь</span>
+                <span>Open Door</span>
             </button>
 
             <button onclick="sendFaultCommand('reset_faults')" class="px-4 py-3 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/60 text-emerald-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
                 <i class="ph-bold ph-check-circle text-lg"></i>
-                <span>Сбросить сбои</span>
+                <span>Reset Faults</span>
             </button>
         </div>
     </footer>
@@ -258,8 +258,8 @@
         let client;
         let map, carMarker, geofenceCircle;
 
-        // Координаты центра Геозоны (Зона ограничения скорости)
-        const GEOFENCE_CENTER = [50.4520, 30.5260];
+        // Košice City Center Geofence
+        const GEOFENCE_CENTER = [48.7220, 21.2575];
         const GEOFENCE_RADIUS_METERS = 400;
 
         const ui = {
@@ -285,12 +285,14 @@
         };
 
         function initMap() {
-            map = L.map('map', { zoomControl: false }).setView([50.4501, 30.5234], 14);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap'
+            map = L.map('map', { zoomControl: false }).setView([48.7220, 21.2575], 14);
+            
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap &copy; CARTO',
+                subdomains: 'abcd',
+                maxZoom: 19
             }).addTo(map);
 
-            // Рисуем Геозону (Красный круговой контур)
             geofenceCircle = L.circle(GEOFENCE_CENTER, {
                 color: '#f59e0b',
                 fillColor: '#f59e0b',
@@ -298,14 +300,13 @@
                 radius: GEOFENCE_RADIUS_METERS
             }).addTo(map);
 
-            // Создаем синий неоновый маркер машины
             const carIcon = L.divIcon({
                 className: 'custom-car-icon',
                 html: `<div class="w-4 h-4 bg-cyan-400 rounded-full border-2 border-white shadow-[0_0_12px_rgba(34,211,238,1)]"></div>`,
                 iconSize: [16, 16]
             });
 
-            carMarker = L.marker([50.4501, 30.5234], { icon: carIcon }).addTo(map);
+            carMarker = L.marker([48.7220, 21.2575], { icon: carIcon }).addTo(map);
         }
 
         function initMQTT() {
@@ -353,7 +354,6 @@
         }
 
         function updateDashboard(data) {
-            // Обновление GPS Карты
             if (data.location) {
                 const lat = data.location.lat;
                 const lng = data.location.lng;
@@ -362,7 +362,6 @@
                 carMarker.setLatLng([lat, lng]);
                 map.panTo([lat, lng]);
 
-                // Проверка Геозоны (Дистанция от центра геозоны в метрах)
                 const carLatLng = L.latLng(lat, lng);
                 const distance = carLatLng.distanceTo(L.latLng(GEOFENCE_CENTER));
                 const geofenceAlert = document.getElementById('geofence-alert');

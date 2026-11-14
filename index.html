@@ -199,27 +199,42 @@
 
         <!-- RIGHT COLUMN: TPMS & DTC Diagnostics -->
         <div class="flex flex-col gap-6">
-            <div class="glass-panel rounded-3xl p-6 flex flex-col items-center justify-center relative h-[320px]">
+            <div class="glass-panel rounded-3xl p-6 flex flex-col items-center justify-between relative min-h-[340px]">
                 <h2 class="absolute top-6 left-6 text-sm uppercase tracking-widest text-slate-400">Chassis & Tires</h2>
                 <div class="text-xs text-slate-500 absolute top-6 right-6">Pressure (Bar)</div>
                 
-                <div class="relative w-40 h-52 mt-8 flex items-center justify-center mx-auto">
-                    <div class="absolute inset-0 m-auto w-20 h-44 border-2 border-slate-600 rounded-[2rem] opacity-70 bg-gradient-to-b from-slate-800/20 to-slate-800/0"></div>
-                    <div class="absolute top-6 -left-14 flex flex-col items-end">
-                        <span id="ui-tire-fl" class="text-sm font-mono font-bold text-white">-.--</span>
+                <div class="relative w-44 h-64 mt-10 mb-2 flex items-center justify-center mx-auto">
+                    <!-- Car Chassis Body -->
+                    <div class="absolute inset-0 m-auto w-24 h-52 border-2 border-slate-600 rounded-[2.5rem] opacity-70 bg-gradient-to-b from-slate-800/30 to-slate-800/10"></div>
+                    <div class="absolute inset-0 m-auto w-20 h-10 top-12 border border-slate-700 rounded-t-xl bg-slate-800/40"></div>
+                    <div class="absolute inset-0 m-auto w-20 h-8 bottom-12 border border-slate-700 rounded-b-xl bg-slate-800/40"></div>
+                    
+                    <!-- Front Left Tire -->
+                    <div class="absolute top-8 -left-2 w-4 h-10 bg-slate-800 border border-slate-600 rounded-md"></div>
+                    <div class="absolute top-9 -left-16 flex flex-col items-end">
+                        <span id="ui-tire-fl" class="text-base font-mono font-bold text-white">-.--</span>
                     </div>
-                    <div class="absolute top-6 -right-14 flex flex-col items-start">
-                        <span id="ui-tire-fr" class="text-sm font-mono font-bold text-white">-.--</span>
+                    
+                    <!-- Front Right Tire -->
+                    <div class="absolute top-8 -right-2 w-4 h-10 bg-slate-800 border border-slate-600 rounded-md"></div>
+                    <div class="absolute top-9 -right-16 flex flex-col items-start">
+                        <span id="ui-tire-fr" class="text-base font-mono font-bold text-white">-.--</span>
                     </div>
-                    <div class="absolute bottom-6 -left-14 flex flex-col items-end">
-                        <span id="ui-tire-rl" class="text-sm font-mono font-bold text-white">-.--</span>
+                    
+                    <!-- Rear Left Tire -->
+                    <div class="absolute bottom-8 -left-2 w-4 h-10 bg-slate-800 border border-slate-600 rounded-md"></div>
+                    <div class="absolute bottom-9 -left-16 flex flex-col items-end">
+                        <span id="ui-tire-rl" class="text-base font-mono font-bold text-white">-.--</span>
                     </div>
-                    <div class="absolute bottom-6 -right-14 flex flex-col items-start">
-                        <span id="ui-tire-rr" class="text-sm font-mono font-bold text-white">-.--</span>
+                    
+                    <!-- Rear Right Tire -->
+                    <div class="absolute bottom-8 -right-2 w-4 h-10 bg-slate-800 border border-slate-600 rounded-md"></div>
+                    <div class="absolute bottom-9 -right-16 flex flex-col items-start">
+                        <span id="ui-tire-rr" class="text-base font-mono font-bold text-white">-.--</span>
                     </div>
                 </div>
                 
-                <div class="mt-auto w-full pt-2">
+                <div class="w-full pt-2">
                     <div class="flex justify-between text-xs text-slate-400 mb-1">
                         <span>Tire Health</span>
                         <span id="tire-health-text" class="text-emerald-400 font-semibold">Optimal</span>
@@ -529,7 +544,7 @@
             if(data.tires_bar) {
                 const checkTire = (val, el) => {
                     el.innerText = val.toFixed(2);
-                    el.className = (val < 2.0 || val > 2.5) ? "text-sm font-mono font-bold text-red-400 animate-pulse" : "text-sm font-mono font-bold text-white";
+                    el.className = (val < 2.0 || val > 2.5) ? "text-base font-mono font-bold text-red-400 animate-pulse" : "text-base font-mono font-bold text-white";
                 };
                 checkTire(data.tires_bar.fl, ui.tireFl);
                 checkTire(data.tires_bar.fr, ui.tireFr);

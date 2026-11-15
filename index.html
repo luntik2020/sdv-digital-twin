@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SDV Telemetry, Anti-Theft & Diagnostics - Košice</title>
+    <title>SDV Telemetry & Multi-Tier Control Panel - Košice</title>
     
     <!-- Tailwind CSS & Phosphor Icons -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -52,7 +52,7 @@
             <i class="ph-fill ph-shield-check text-3xl text-cyan-400"></i>
             <div>
                 <h1 class="text-xl font-bold tracking-wider text-slate-100 uppercase">SDV Platform Košice</h1>
-                <p class="text-xs text-slate-400">ISO 21434 Anti-Theft + V2X + ISO 14229 UDS</p>
+                <p class="text-xs text-slate-400">ISO 21434 Cybersecurity + ISO 26262 ASIL-D + ISO 14229 UDS</p>
             </div>
         </div>
         
@@ -257,7 +257,7 @@
 
     </main>
 
-    <!-- ANTI-THEFT & EMERGENCY CONTROLS PANEL -->
+    <!-- COMPLETE FOOTER: CATEGORIZED SYSTEM CONTROLS -->
     <footer class="w-full max-w-7xl mt-8 glass-panel p-6 rounded-3xl flex flex-col gap-6">
         
         <!-- OTA Progress Banner -->
@@ -273,73 +273,136 @@
             </div>
         </div>
 
-        <!-- Section 1: ISO 21434 Anti-Theft Protection Suite -->
-        <div>
-            <h3 class="text-sm uppercase tracking-widest text-slate-300 font-bold flex items-center gap-2 mb-3">
-                <i class="ph-bold ph-lock-keyhole text-red-400 text-lg"></i> ISO 21434 Cybersecurity & Anti-Theft Suite
+        <!-- GROUP 1: SOTA Cloud Firmware Deployment -->
+        <div class="bg-slate-900/40 p-4 rounded-2xl border border-cyan-500/20">
+            <h3 class="text-xs uppercase tracking-widest text-cyan-400 font-bold flex items-center gap-2 mb-3">
+                <i class="ph-bold ph-cloud-arrow-up text-lg"></i> Group 1: SOTA Cloud Firmware Deployment
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button onclick="sendFaultCommand('ota_sport')" class="px-4 py-3 bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-700/60 text-cyan-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-lightning text-lg"></i>
+                    <span>Deploy v1.1.0-SPORT (75 km/h)</span>
+                </button>
+
+                <button onclick="sendFaultCommand('ota_eco')" class="px-4 py-3 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-700/60 text-emerald-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-leaf text-lg"></i>
+                    <span>Deploy v1.2.0-ECO (40 km/h)</span>
+                </button>
+
+                <button onclick="sendFaultCommand('ota_std')" class="px-4 py-3 bg-slate-800/60 hover:bg-slate-700/60 border border-slate-600 text-slate-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-arrow-counter-clockwise text-lg"></i>
+                    <span>Revert v1.0.0-STD</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- GROUP 2: ISO 21434 Anti-Theft & Cybersecurity Suite -->
+        <div class="bg-slate-900/40 p-4 rounded-2xl border border-red-500/20">
+            <h3 class="text-xs uppercase tracking-widest text-red-400 font-bold flex items-center gap-2 mb-3">
+                <i class="ph-bold ph-lock-keyhole text-lg"></i> Group 2: ISO 21434 Anti-Theft & Cybersecurity Suite
             </h3>
             <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                <!-- 1. Remote Immobilizer / Kill-Switch -->
-                <button onclick="sendFaultCommand('toggle_immobilizer')" class="px-3 py-3 bg-red-950/60 hover:bg-red-900/80 border border-red-700 text-red-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                <button onclick="sendFaultCommand('toggle_immobilizer')" class="px-3 py-3 bg-red-950/60 hover:bg-red-900/80 border border-red-700/80 text-red-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
                     <i class="ph-bold ph-prohibit text-lg"></i>
                     <span>Remote Kill-Switch</span>
                 </button>
 
-                <!-- 2. Cabin Security Deadlock -->
-                <button onclick="sendFaultCommand('toggle_deadlock')" class="px-3 py-3 bg-purple-950/60 hover:bg-purple-900/80 border border-purple-700 text-purple-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                <button onclick="sendFaultCommand('toggle_deadlock')" class="px-3 py-3 bg-purple-950/60 hover:bg-purple-900/80 border border-purple-700/80 text-purple-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
                     <i class="ph-bold ph-lock-laminated text-lg"></i>
                     <span>Trap Mode (Deadlock)</span>
                 </button>
 
-                <!-- 3. Panic Alarm Strobes -->
-                <button onclick="sendFaultCommand('toggle_panic')" class="px-3 py-3 bg-amber-950/60 hover:bg-amber-900/80 border border-amber-700 text-amber-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                <button onclick="sendFaultCommand('toggle_panic')" class="px-3 py-3 bg-amber-950/60 hover:bg-amber-900/80 border border-amber-700/80 text-amber-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
                     <i class="ph-bold ph-bell-ringing text-lg"></i>
                     <span>Panic Alarm & Strobes</span>
                 </button>
 
-                <!-- 4. Stealth Tracking -->
-                <button onclick="sendFaultCommand('toggle_stealth')" class="px-3 py-3 bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-700 text-cyan-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                <button onclick="sendFaultCommand('toggle_stealth')" class="px-3 py-3 bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-700/80 text-cyan-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
                     <i class="ph-bold ph-eye-slash text-lg"></i>
                     <span>Stealth Tracking</span>
                 </button>
 
-                <!-- 5. RF Jamming Trigger -->
-                <button onclick="sendFaultCommand('trigger_jamming')" class="px-3 py-3 bg-orange-950/60 hover:bg-orange-900/80 border border-orange-700 text-orange-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                <button onclick="sendFaultCommand('trigger_jamming')" class="px-3 py-3 bg-orange-950/60 hover:bg-orange-900/80 border border-orange-700/80 text-orange-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
                     <i class="ph-bold ph-broadcast text-lg"></i>
                     <span>Simulate RF Jamming</span>
                 </button>
             </div>
         </div>
 
-        <div class="w-full h-[1px] bg-slate-800"></div>
+        <!-- GROUP 3: High-Voltage & Thermal Emergency -->
+        <div class="bg-slate-900/40 p-4 rounded-2xl border border-rose-500/20">
+            <h3 class="text-xs uppercase tracking-widest text-rose-400 font-bold flex items-center gap-2 mb-3">
+                <i class="ph-bold ph-lightning-slash text-lg"></i> Group 3: High-Voltage & Thermal Emergency Systems
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button onclick="sendFaultCommand('hv_fuse')" class="px-3 py-3 bg-rose-950/60 hover:bg-rose-900/80 border border-rose-700/80 text-rose-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-lightning-slash text-lg"></i>
+                    <span>HV Pyro Fuse Disconnect (P0A0A)</span>
+                </button>
 
-        <!-- Section 2: Safety Overrides & System Reset -->
-        <div>
-            <h3 class="text-sm uppercase tracking-widest text-slate-300 font-bold flex items-center gap-2 mb-3">
-                <i class="ph-bold ph-shield-warning text-amber-400 text-lg"></i> ISO 26262 Safety Overrides & Diagnostics
+                <button onclick="sendFaultCommand('thermal_purge')" class="px-3 py-3 bg-pink-950/60 hover:bg-pink-900/80 border border-pink-700/80 text-pink-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-snowflake text-lg"></i>
+                    <span>Coolant Thermal Purge (P0A80)</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- GROUP 4: Drive-by-Wire & Crash Prep Safety -->
+        <div class="bg-slate-900/40 p-4 rounded-2xl border border-amber-500/20">
+            <h3 class="text-xs uppercase tracking-widest text-amber-400 font-bold flex items-center gap-2 mb-3">
+                <i class="ph-bold ph-shield-warning text-lg"></i> Group 4: Drive-by-Wire & Crash Prep Safety
             </h3>
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <button onclick="sendFaultCommand('toggle_doors')" class="px-3 py-3 bg-indigo-950/40 hover:bg-indigo-900/60 border border-indigo-700/60 text-indigo-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                <button onclick="sendFaultCommand('safe_pullover')" class="px-3 py-3 bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-700/60 text-cyan-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-arrow-line-down-right text-lg"></i>
+                    <span>Safe Pull-Over</span>
+                </button>
+
+                <button onclick="sendFaultCommand('brake_backup')" class="px-3 py-3 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-700/60 text-amber-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-footprints text-lg"></i>
+                    <span>EPB Brake Redundancy</span>
+                </button>
+
+                <button onclick="sendFaultCommand('crash_prep')" class="px-3 py-3 bg-purple-950/40 hover:bg-purple-900/60 border border-purple-700/60 text-purple-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-siren text-lg"></i>
+                    <span>Crash Prep & Strobes</span>
+                </button>
+
+                <button onclick="sendFaultCommand('smoke_hazard')" class="px-3 py-3 bg-orange-950/40 hover:bg-orange-900/60 border border-orange-700/60 text-orange-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-mask-happy text-lg"></i>
+                    <span>Smoke Isolation</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- GROUP 5: Cabin & Vehicle Diagnostics Overrides -->
+        <div class="bg-slate-900/40 p-4 rounded-2xl border border-indigo-500/20">
+            <h3 class="text-xs uppercase tracking-widest text-indigo-400 font-bold flex items-center gap-2 mb-3">
+                <i class="ph-bold ph-wrench text-lg"></i> Group 5: Cabin Controls & Fault Injection Panel
+            </h3>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <button onclick="sendFaultCommand('toggle_doors')" class="px-3 py-3 bg-indigo-950/40 hover:bg-indigo-900/60 border border-indigo-700/60 text-indigo-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
                     <i class="ph-bold ph-key text-lg"></i>
                     <span>Door Lock/Unlock</span>
                 </button>
 
-                <button onclick="sendFaultCommand('smoke_hazard')" class="px-3 py-3 bg-orange-950/40 hover:bg-orange-900/60 border border-orange-700/60 text-orange-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
-                    <i class="ph-bold ph-mask-happy text-lg"></i>
-                    <span>Smoke Isolation</span>
-                </button>
-
-                <button onclick="sendFaultCommand('puncture_fl')" class="px-3 py-3 bg-red-950/40 hover:bg-red-900/60 border border-red-800/60 text-red-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                <button onclick="sendFaultCommand('puncture_fl')" class="px-3 py-3 bg-red-950/40 hover:bg-red-900/60 border border-red-800/60 text-red-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
                     <i class="ph-bold ph-warning-circle text-lg"></i>
                     <span>Tire Puncture (FL)</span>
                 </button>
 
-                <button onclick="sendFaultCommand('reset_faults')" class="px-3 py-3 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/60 text-emerald-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                <button onclick="sendFaultCommand('overheat_battery')" class="px-3 py-3 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/60 text-amber-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-thermometer-hot text-lg"></i>
+                    <span>Battery Overheat</span>
+                </button>
+
+                <button onclick="sendFaultCommand('reset_faults')" class="px-3 py-3 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/60 text-emerald-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
                     <i class="ph-bold ph-check-circle text-lg"></i>
                     <span>Reset All Systems</span>
                 </button>
             </div>
         </div>
+
     </footer>
 
     <!-- JavaScript & Map Logic -->
@@ -441,7 +504,6 @@
 
         function changeVehicle(newCarId) {
             currentVehicleId = newCarId;
-            document.getElementById('command-topic-label').innerText = `sdv/commands/${currentVehicleId}`;
         }
 
         function sendFaultCommand(commandName) {
@@ -492,7 +554,7 @@
             if (data.driver_state) {
                 ui.driverState.innerText = `AI: ${data.driver_state}`;
                 const isCritical = ['IMMOBILIZED (KILL-SWITCH)', 'EMERGENCY STOP', 'PANIC ALARM STROBES', 'RF JAMMED SAFEGUARD', 'HV PYRO CUTOFF'].includes(data.driver_state);
-                const isWarning = ['GEOFENCE LOCKDOWN', 'STEALTH TRACKING', 'CORNERING', 'OTA FLASHING', 'V2X SLOWDOWN', 'CABIN ISOLATED'].includes(data.driver_state);
+                const isWarning = ['GEOFENCE LOCKDOWN', 'STEALTH TRACKING', 'CORNERING', 'OTA FLASHING', 'V2X SLOWDOWN', 'CABIN ISOLATED', 'THERMAL PURGE', 'EPB BRAKE BACKUP', 'SAFE PULLOVER'].includes(data.driver_state);
                 
                 if (isCritical) {
                     ui.driverState.className = "text-[11px] font-mono font-bold text-red-400 uppercase";

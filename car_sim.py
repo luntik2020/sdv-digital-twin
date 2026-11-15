@@ -12,7 +12,6 @@ TELEMETRY_TOPIC_PREFIX = "sdv/telemetry/"
 COMMANDS_TOPIC = "sdv/commands/+"
 V2X_HAZARD_TOPIC = "sdv/v2x/hazard"
 
-GEOFENCE_CENTER = [48.7220, 21.2575]  # lat, lng
 GEOFENCE_RADIUS_METERS = 400.0
 
 WAYPOINTS = {
@@ -101,7 +100,8 @@ fleet = {
         "recirc_on": False, "smoke_hazard": False,
         "security": {
             "immobilized": False, "deadlock": False, "panic_alarm": False,
-            "stealth_tracking": False, "rf_jamming": False, "geofence_lockdown": False
+            "stealth_tracking": False, "rf_jamming": False, "geofence_lockdown": False,
+            "geofence_enabled": False, "geofence_center": None, "geofence_set_current": False
         },
         "tire_pressures": {"fl": 2.20, "fr": 2.20, "rl": 2.20, "rr": 2.20}
     },
@@ -115,7 +115,8 @@ fleet = {
         "recirc_on": False, "smoke_hazard": False,
         "security": {
             "immobilized": False, "deadlock": False, "panic_alarm": False,
-            "stealth_tracking": False, "rf_jamming": False, "geofence_lockdown": False
+            "stealth_tracking": False, "rf_jamming": False, "geofence_lockdown": False,
+            "geofence_enabled": False, "geofence_center": None, "geofence_set_current": False
         },
         "tire_pressures": {"fl": 2.25, "fr": 2.25, "rl": 2.25, "rr": 2.25}
     },
@@ -129,7 +130,8 @@ fleet = {
         "recirc_on": False, "smoke_hazard": False,
         "security": {
             "immobilized": False, "deadlock": False, "panic_alarm": False,
-            "stealth_tracking": False, "rf_jamming": False, "geofence_lockdown": False
+            "stealth_tracking": False, "rf_jamming": False, "geofence_lockdown": False,
+            "geofence_enabled": False, "geofence_center": None, "geofence_set_current": False
         },
         "tire_pressures": {"fl": 2.30, "fr": 2.30, "rl": 2.30, "rr": 2.30}
     }
@@ -142,7 +144,6 @@ def update_dtc_diagnostics(car_id):
     sec = car["security"]
     codes = []
     
-    # Стандартные неисправности
     if car["faults"].get("overheat_battery"):
         codes.append({"code": "P0A7F", "desc": "Hybrid Battery Pack Over Temperature Critical", "severity": "CRITICAL"})
     if car["faults"].get("puncture_fl"):
@@ -162,7 +163,6 @@ def update_dtc_diagnostics(car_id):
     if car["faults"].get("crash_prep"):
         codes.append({"code": "B0001", "desc": "Crash Event - Window Micro-Drop & Strobes Active", "severity": "CRITICAL"})
 
-    # Противоугонные DTC (ISO 21434 / ISO 14229 UDS)
     if sec["immobilized"]:
         codes.append({"code": "P1609", "desc": "Powertrain Anti-Theft Remote Immobilizer Active", "severity": "CRITICAL"})
     if sec["geofence_lockdown"]:
@@ -202,10 +202,16 @@ def update_ai_driver_behavior(car_id, client, current_lat, current_lng):
     car = fleet[car_id]
     sec = car["security"]
 
-    # Автоматический контроль выезда за геозону (Geofence Perimeter Lockdown)
-    dist_to_center = haversine_distance([current_lat, current_lng], GEOFENCE_CENTER)
-    if dist_to_center > GEOFENCE_RADIUS_METERS:
-        sec["geofence_lockdown"] = True
+    # Фиксация точки включения геозоны в момент активации
+    if sec.get("geofence_set_current"):
+        sec["geofence_center"] = [current_lat, current_lng]
+        sec["geofence_set_current"] = False
+        print(f"[SECURITY] Геозона для {car_id} установлена в {current_lat}, {current_lng}")
+
+    # Расчёт расстояния от точки включения
+    if sec.get("geofence_enabled") and sec.get("geofence_center"):
+        dist_to_center = haversine_distance([current_lat, current_lng], sec["geofence_center"])
+        sec["geofence_lockdown"] = dist_to_center > GEOFENCE_RADIUS_METERS
     else:
         sec["geofence_lockdown"] = False
 
@@ -218,7 +224,6 @@ def update_ai_driver_behavior(car_id, client, current_lat, current_lng):
         car["state"] = "OTA FLASHING"
         return
 
-    # Приоритет 1: Имобилайзер и критические блокировки
     if sec["immobilized"]:
         car["target_speed"] = 0.0
         car["state"] = "IMMOBILIZED (KILL-SWITCH)"
@@ -242,7 +247,6 @@ def update_ai_driver_behavior(car_id, client, current_lat, current_lng):
         car["state"] = "CRASH STROBES ACTIVE"
         return
 
-    # Приоритет 2: Ограничения по геозоне и безопасному прижатию
     if sec["geofence_lockdown"]:
         car["target_speed"] = 15.0
         car["state"] = "GEOFENCE LOCKDOWN"
@@ -406,12 +410,22 @@ def on_message(client, userdata, msg):
                 fleet[car_id]["smoke_hazard"] = True
                 fleet[car_id]["recirc_on"] = True
             
-            # Противоугонные команды
+            elif command == "toggle_geofence":
+                if sec.get("geofence_enabled"):
+                    sec["geofence_enabled"] = False
+                    sec["geofence_center"] = None
+                    sec["geofence_lockdown"] = False
+                    print(f"[SECURITY] Geofence guard OFF for {car_id}")
+                else:
+                    sec["geofence_enabled"] = True
+                    sec["geofence_set_current"] = True
+                    print(f"[SECURITY] Geofence guard ARMING for {car_id}")
+
             elif command == "toggle_immobilizer":
                 sec["immobilized"] = not sec["immobilized"]
             elif command == "toggle_deadlock":
                 sec["deadlock"] = not sec["deadlock"]
-                fleet[car_id]["faults"]["open_door"] = False  # Принудительное заклинивание дверей
+                fleet[car_id]["faults"]["open_door"] = False
             elif command == "toggle_panic":
                 sec["panic_alarm"] = not sec["panic_alarm"]
             elif command == "toggle_stealth":
@@ -423,7 +437,8 @@ def on_message(client, userdata, msg):
                 fleet[car_id]["faults"] = {}
                 fleet[car_id]["security"] = {
                     "immobilized": False, "deadlock": False, "panic_alarm": False,
-                    "stealth_tracking": False, "rf_jamming": False, "geofence_lockdown": False
+                    "stealth_tracking": False, "rf_jamming": False, "geofence_lockdown": False,
+                    "geofence_enabled": False, "geofence_center": None, "geofence_set_current": False
                 }
                 fleet[car_id]["smoke_hazard"] = False
                 fleet[car_id]["recirc_on"] = False

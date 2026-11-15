@@ -262,7 +262,7 @@
 
     </main>
 
-    <!-- FAULT INJECTION & OTA MANAGEMENT PANEL -->
+    <!-- FAULT INJECTION & SAFETY OVERRIDE PANEL -->
     <footer class="w-full max-w-7xl mt-8 glass-panel p-6 rounded-3xl flex flex-col gap-6">
         
         <!-- OTA Progress Banner -->
@@ -303,30 +303,70 @@
 
         <div class="w-full h-[1px] bg-slate-800"></div>
 
-        <!-- Section 2: Fault Injection -->
+        <!-- Section 2: Complete Emergency Controls & Fault Injection Grid (10 Buttons) -->
         <div>
             <h3 class="text-sm uppercase tracking-widest text-slate-300 font-bold flex items-center gap-2 mb-3">
-                <i class="ph-bold ph-bug text-amber-400 text-lg"></i> Fault Injection & Diagnostics Panel
+                <i class="ph-bold ph-shield-warning text-amber-400 text-lg"></i> ISO 26262 ASIL-D Emergency Controls & Fault Injection
             </h3>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <button onclick="sendFaultCommand('puncture_fl')" class="px-4 py-3 bg-red-950/40 hover:bg-red-900/60 border border-red-800/60 text-red-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <!-- 1. Door Lock/Unlock -->
+                <button onclick="sendFaultCommand('toggle_doors')" class="px-3 py-3 bg-indigo-950/40 hover:bg-indigo-900/60 border border-indigo-700/60 text-indigo-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-key text-lg"></i>
+                    <span>Door Lock/Unlock</span>
+                </button>
+
+                <!-- 2. Smoke Isolation -->
+                <button onclick="sendFaultCommand('smoke_hazard')" class="px-3 py-3 bg-orange-950/40 hover:bg-orange-900/60 border border-orange-700/60 text-orange-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-mask-happy text-lg"></i>
+                    <span>Smoke Isolation</span>
+                </button>
+
+                <!-- 3. HV Pyro Fuse Cutoff -->
+                <button onclick="sendFaultCommand('hv_fuse')" class="px-3 py-3 bg-red-950/60 hover:bg-red-900/80 border border-red-700 text-red-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-lightning-slash text-lg"></i>
+                    <span>HV Pyro Fuse Disconnect</span>
+                </button>
+
+                <!-- 4. Thermal Purge -->
+                <button onclick="sendFaultCommand('thermal_purge')" class="px-3 py-3 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-700/60 text-rose-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-snowflake text-lg"></i>
+                    <span>Coolant Thermal Purge</span>
+                </button>
+
+                <!-- 5. Safe Pull-Over -->
+                <button onclick="sendFaultCommand('safe_pullover')" class="px-3 py-3 bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-700/60 text-cyan-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-arrow-line-down-right text-lg"></i>
+                    <span>Safe Pull-Over</span>
+                </button>
+
+                <!-- 6. Brake Redundancy -->
+                <button onclick="sendFaultCommand('brake_backup')" class="px-3 py-3 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-700/60 text-amber-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-footprints text-lg"></i>
+                    <span>EPB Brake Redundancy</span>
+                </button>
+
+                <!-- 7. Crash Prep Strobes -->
+                <button onclick="sendFaultCommand('crash_prep')" class="px-3 py-3 bg-purple-950/40 hover:bg-purple-900/60 border border-purple-700/60 text-purple-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-siren text-lg"></i>
+                    <span>Crash Prep & Strobes</span>
+                </button>
+
+                <!-- 8. Tire Puncture -->
+                <button onclick="sendFaultCommand('puncture_fl')" class="px-3 py-3 bg-red-950/40 hover:bg-red-900/60 border border-red-800/60 text-red-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
                     <i class="ph-bold ph-warning-circle text-lg"></i>
                     <span>Tire Puncture (FL)</span>
                 </button>
 
-                <button onclick="sendFaultCommand('overheat_battery')" class="px-4 py-3 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/60 text-amber-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                <!-- 9. Battery Overheat -->
+                <button onclick="sendFaultCommand('overheat_battery')" class="px-3 py-3 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/60 text-amber-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
                     <i class="ph-bold ph-thermometer-hot text-lg"></i>
                     <span>Battery Overheat</span>
                 </button>
 
-                <button onclick="sendFaultCommand('open_door')" class="px-4 py-3 bg-purple-950/40 hover:bg-purple-900/60 border border-purple-800/60 text-purple-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
-                    <i class="ph-bold ph-door-open text-lg"></i>
-                    <span>Open Door</span>
-                </button>
-
-                <button onclick="sendFaultCommand('reset_faults')" class="px-4 py-3 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/60 text-emerald-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                <!-- 10. Reset Systems -->
+                <button onclick="sendFaultCommand('reset_faults')" class="px-3 py-3 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/60 text-emerald-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
                     <i class="ph-bold ph-check-circle text-lg"></i>
-                    <span>Reset Faults</span>
+                    <span>Reset All Systems</span>
                 </button>
             </div>
         </div>
@@ -481,10 +521,13 @@
 
             if (data.driver_state) {
                 ui.driverState.innerText = `AI: ${data.driver_state}`;
-                if (data.driver_state === 'EMERGENCY STOP' || data.driver_state === 'RED LIGHT STOP') {
+                const isCritical = ['EMERGENCY STOP', 'RED LIGHT STOP', 'HV PYRO CUTOFF', 'CRASH STROBES ACTIVE'].includes(data.driver_state);
+                const isWarning = ['CORNERING', 'OTA FLASHING', 'V2X SLOWDOWN', 'CABIN ISOLATED', 'THERMAL PURGE', 'EPB BRAKE BACKUP', 'SAFE PULLOVER'].includes(data.driver_state);
+                
+                if (isCritical) {
                     ui.driverState.className = "text-[11px] font-mono font-bold text-red-400 uppercase";
                     ui.driverDot.className = "w-2 h-2 rounded-full bg-red-400 animate-ping";
-                } else if (data.driver_state === 'CORNERING' || data.driver_state === 'OTA FLASHING' || data.driver_state === 'V2X SLOWDOWN') {
+                } else if (isWarning) {
                     ui.driverState.className = "text-[11px] font-mono font-bold text-amber-400 uppercase";
                     ui.driverDot.className = "w-2 h-2 rounded-full bg-amber-400 animate-ping";
                 } else {
@@ -496,7 +539,6 @@
             if (data.location) {
                 const lat = data.location.lat;
                 const lng = data.location.lng;
-                
                 ui.latLng.innerText = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
                 carMarker.setLatLng([lat, lng]);
                 map.panTo([lat, lng], { animate: true, duration: 0.8 });
@@ -567,7 +609,12 @@
             if(data.status) {
                 updateWidget(ui.doors, !data.status.doors_closed, 'ph-door-open', 'ph-door', 'Open', 'Closed', true);
                 updateWidget(ui.belts, !data.status.seatbelts_fastened, 'ph-seatbelt', 'ph-seatbelt', 'Unbuckled', 'Fastened', true);
-                updateWidget(ui.ac, data.status.ac_on, 'ph-wind animate-pulse', 'ph-wind', 'AC On', 'AC Off', false);
+                
+                if (data.recirc_on) {
+                    updateWidget(ui.ac, true, 'ph-arrows-clockwise animate-spin', 'ph-wind', 'Recirc On', 'AC Off', true);
+                } else {
+                    updateWidget(ui.ac, data.status.ac_on, 'ph-wind animate-pulse', 'ph-wind', 'AC On', 'AC Off', false);
+                }
                 
                 const isDrive = data.status.gear === "D";
                 updateWidget(ui.gear, isDrive, 'ph-steering-wheel', 'ph-parking-circle', 'Drive', 'Park', false);

@@ -12,6 +12,9 @@ TELEMETRY_TOPIC_PREFIX = "sdv/telemetry/"
 COMMANDS_TOPIC = "sdv/commands/+"
 V2X_HAZARD_TOPIC = "sdv/v2x/hazard"
 
+GEOFENCE_CENTER = [48.7220, 21.2575]  # lat, lng
+GEOFENCE_RADIUS_METERS = 400.0
+
 WAYPOINTS = {
     "car_001": [
         [21.2531, 48.7245], [21.2520, 48.7182], [21.2615, 48.7160],
@@ -96,6 +99,10 @@ fleet = {
         "sw_version": "v1.0.0-STD", "ota_status": "IDLE", "ota_progress": 0, "pending_ota": None,
         "dtc_codes": [], "v2x_warning": None, "v2x_timestamp": 0.0,
         "recirc_on": False, "smoke_hazard": False,
+        "security": {
+            "immobilized": False, "deadlock": False, "panic_alarm": False,
+            "stealth_tracking": False, "rf_jamming": False, "geofence_lockdown": False
+        },
         "tire_pressures": {"fl": 2.20, "fr": 2.20, "rl": 2.20, "rr": 2.20}
     },
     "car_002": {
@@ -106,6 +113,10 @@ fleet = {
         "sw_version": "v1.0.0-STD", "ota_status": "IDLE", "ota_progress": 0, "pending_ota": None,
         "dtc_codes": [], "v2x_warning": None, "v2x_timestamp": 0.0,
         "recirc_on": False, "smoke_hazard": False,
+        "security": {
+            "immobilized": False, "deadlock": False, "panic_alarm": False,
+            "stealth_tracking": False, "rf_jamming": False, "geofence_lockdown": False
+        },
         "tire_pressures": {"fl": 2.25, "fr": 2.25, "rl": 2.25, "rr": 2.25}
     },
     "car_003": {
@@ -116,6 +127,10 @@ fleet = {
         "sw_version": "v1.0.0-STD", "ota_status": "IDLE", "ota_progress": 0, "pending_ota": None,
         "dtc_codes": [], "v2x_warning": None, "v2x_timestamp": 0.0,
         "recirc_on": False, "smoke_hazard": False,
+        "security": {
+            "immobilized": False, "deadlock": False, "panic_alarm": False,
+            "stealth_tracking": False, "rf_jamming": False, "geofence_lockdown": False
+        },
         "tire_pressures": {"fl": 2.30, "fr": 2.30, "rl": 2.30, "rr": 2.30}
     }
 }
@@ -124,8 +139,10 @@ prepare_fleet_routes(fleet)
 
 def update_dtc_diagnostics(car_id):
     car = fleet[car_id]
+    sec = car["security"]
     codes = []
     
+    # Стандартные неисправности
     if car["faults"].get("overheat_battery"):
         codes.append({"code": "P0A7F", "desc": "Hybrid Battery Pack Over Temperature Critical", "severity": "CRITICAL"})
     if car["faults"].get("puncture_fl"):
@@ -144,6 +161,20 @@ def update_dtc_diagnostics(car_id):
         codes.append({"code": "C1203", "desc": "Primary Brake Failure - EPB Redundancy Engaged", "severity": "WARNING"})
     if car["faults"].get("crash_prep"):
         codes.append({"code": "B0001", "desc": "Crash Event - Window Micro-Drop & Strobes Active", "severity": "CRITICAL"})
+
+    # Противоугонные DTC (ISO 21434 / ISO 14229 UDS)
+    if sec["immobilized"]:
+        codes.append({"code": "P1609", "desc": "Powertrain Anti-Theft Remote Immobilizer Active", "severity": "CRITICAL"})
+    if sec["geofence_lockdown"]:
+        codes.append({"code": "U1201", "desc": "Geofence Security Perimeter Breach Lockdown", "severity": "WARNING"})
+    if sec["deadlock"]:
+        codes.append({"code": "B1108", "desc": "Interior Door Handle Security Bypass / Deadlock Engaged", "severity": "WARNING"})
+    if sec["panic_alarm"]:
+        codes.append({"code": "B10AD", "desc": "Remote Anti-Theft Panic Alarm & Strobes Active", "severity": "CRITICAL"})
+    if sec["stealth_tracking"]:
+        codes.append({"code": "U0140", "desc": "Stealth Tracking Mode Engaged - Display Subsystem Muted", "severity": "INFO"})
+    if sec["rf_jamming"]:
+        codes.append({"code": "U1115", "desc": "RF Signal Jamming Interference Detected - Autonomous Safeguard", "severity": "CRITICAL"})
 
     car["dtc_codes"] = codes
 
@@ -167,8 +198,16 @@ def process_ota_updates(car_id):
             car["ota_progress"] = 100
             car["pending_ota"] = None
 
-def update_ai_driver_behavior(car_id, client):
+def update_ai_driver_behavior(car_id, client, current_lat, current_lng):
     car = fleet[car_id]
+    sec = car["security"]
+
+    # Автоматический контроль выезда за геозону (Geofence Perimeter Lockdown)
+    dist_to_center = haversine_distance([current_lat, current_lng], GEOFENCE_CENTER)
+    if dist_to_center > GEOFENCE_RADIUS_METERS:
+        sec["geofence_lockdown"] = True
+    else:
+        sec["geofence_lockdown"] = False
 
     if car.get("v2x_warning") and car.get("v2x_timestamp"):
         if time.time() - car["v2x_timestamp"] > 10.0:
@@ -179,15 +218,34 @@ def update_ai_driver_behavior(car_id, client):
         car["state"] = "OTA FLASHING"
         return
 
-    # Приоритетная логика аварийных состояний
+    # Приоритет 1: Имобилайзер и критические блокировки
+    if sec["immobilized"]:
+        car["target_speed"] = 0.0
+        car["state"] = "IMMOBILIZED (KILL-SWITCH)"
+        return
+
     if car["faults"].get("hv_fuse"):
         car["target_speed"] = 0.0
         car["state"] = "HV PYRO CUTOFF"
         return
 
+    if sec["panic_alarm"]:
+        car["state"] = "PANIC ALARM STROBES"
+
+    if sec["rf_jamming"]:
+        car["target_speed"] = 0.0
+        car["state"] = "RF JAMMED SAFEGUARD"
+        return
+
     if car["faults"].get("crash_prep"):
         car["target_speed"] = 0.0
         car["state"] = "CRASH STROBES ACTIVE"
+        return
+
+    # Приоритет 2: Ограничения по геозоне и безопасному прижатию
+    if sec["geofence_lockdown"]:
+        car["target_speed"] = 15.0
+        car["state"] = "GEOFENCE LOCKDOWN"
         return
 
     if car["faults"].get("safe_pullover"):
@@ -201,7 +259,7 @@ def update_ai_driver_behavior(car_id, client):
         
         v2x_payload = {
             "sender": car_id, "event": "HAZARD_STOP",
-            "lat": car["route_points"][0][0], "lng": car["route_points"][0][1],
+            "lat": current_lat, "lng": current_lng,
             "timestamp": time.time()
         }
         client.publish(V2X_HAZARD_TOPIC, json.dumps(v2x_payload))
@@ -219,6 +277,9 @@ def update_ai_driver_behavior(car_id, client):
 
     if car["smoke_hazard"]:
         car["state"] = "CABIN ISOLATED"
+
+    if sec["stealth_tracking"]:
+        car["state"] = "STEALTH TRACKING"
 
     if car["stop_timer"] > 0:
         car["stop_timer"] -= 1
@@ -258,7 +319,7 @@ def update_ai_driver_behavior(car_id, client):
             car["state"] = "RED LIGHT STOP"
         else:
             car["target_speed"] = car["cruise_speed"] + random.uniform(-2, 2)
-            if not car["smoke_hazard"]:
+            if not car["smoke_hazard"] and not sec["stealth_tracking"]:
                 car["state"] = "CRUISING"
 
 def update_car_physics_and_position(car_id):
@@ -266,7 +327,7 @@ def update_car_physics_and_position(car_id):
     speed_diff = car["target_speed"] - car["speed"]
 
     if speed_diff < 0:
-        decel_rate = 12.0 if car["faults"].get("hv_fuse") or car["faults"].get("crash_prep") else 4.0
+        decel_rate = 12.0 if car["security"]["immobilized"] or car["faults"].get("hv_fuse") else 4.0
         car["speed"] = max(0.0, car["speed"] - decel_rate)
     elif speed_diff > 0:
         car["speed"] = min(car["target_speed"], car["speed"] + 4.0)
@@ -330,6 +391,8 @@ def on_message(client, userdata, msg):
 
         if car_id in fleet:
             print(f"[COMMAND RECEIVED] {car_id} -> {command}")
+            sec = fleet[car_id]["security"]
+
             if command in ["ota_sport", "ota_eco", "ota_std"]:
                 fleet[car_id]["pending_ota"] = command
                 fleet[car_id]["ota_status"] = "UPDATING"
@@ -342,8 +405,26 @@ def on_message(client, userdata, msg):
             elif command == "smoke_hazard":
                 fleet[car_id]["smoke_hazard"] = True
                 fleet[car_id]["recirc_on"] = True
+            
+            # Противоугонные команды
+            elif command == "toggle_immobilizer":
+                sec["immobilized"] = not sec["immobilized"]
+            elif command == "toggle_deadlock":
+                sec["deadlock"] = not sec["deadlock"]
+                fleet[car_id]["faults"]["open_door"] = False  # Принудительное заклинивание дверей
+            elif command == "toggle_panic":
+                sec["panic_alarm"] = not sec["panic_alarm"]
+            elif command == "toggle_stealth":
+                sec["stealth_tracking"] = not sec["stealth_tracking"]
+            elif command == "trigger_jamming":
+                sec["rf_jamming"] = True
+
             elif command == "reset_faults":
                 fleet[car_id]["faults"] = {}
+                fleet[car_id]["security"] = {
+                    "immobilized": False, "deadlock": False, "panic_alarm": False,
+                    "stealth_tracking": False, "rf_jamming": False, "geofence_lockdown": False
+                }
                 fleet[car_id]["smoke_hazard"] = False
                 fleet[car_id]["recirc_on"] = False
                 fleet[car_id]["v2x_warning"] = None
@@ -364,10 +445,10 @@ print("[READY] Симулятор автономных автомобилей з
 try:
     while True:
         for car_id, data in fleet.items():
+            lat, lng = update_car_physics_and_position(car_id)
             update_dtc_diagnostics(car_id)
             process_ota_updates(car_id)
-            update_ai_driver_behavior(car_id, client)
-            lat, lng = update_car_physics_and_position(car_id)
+            update_ai_driver_behavior(car_id, client, lat, lng)
             update_tire_thermodynamics(car_id)
 
             is_moving = data["speed"] > 0.5
@@ -380,7 +461,7 @@ try:
                 current_temp = 68.5 + random.uniform(0.1, 0.8)
 
             doors_closed = False if data["faults"].get("open_door") else True
-            gear_state = "P" if (data["speed"] == 0.0 and len(data["faults"]) > 0) else "D"
+            gear_state = "P" if (data["speed"] == 0.0 and (len(data["faults"]) > 0 or data["security"]["immobilized"])) else "D"
 
             telemetry_payload = {
                 "vehicle_id": car_id,
@@ -397,6 +478,7 @@ try:
                 "v2x_warning": data["v2x_warning"],
                 "recirc_on": data["recirc_on"],
                 "smoke_hazard": data["smoke_hazard"],
+                "security": data["security"],
                 "location": {"lat": round(lat, 6), "lng": round(lng, 6)},
                 "tires_bar": {
                     "fl": round(data["tire_pressures"]["fl"], 2),

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SDV Telemetry, V2X & Diagnostics - Košice</title>
+    <title>SDV Telemetry, Anti-Theft & Diagnostics - Košice</title>
     
     <!-- Tailwind CSS & Phosphor Icons -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -49,10 +49,10 @@
     <!-- Header & Vehicle Selector -->
     <header class="w-full max-w-7xl flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
         <div class="flex items-center gap-4">
-            <i class="ph-fill ph-car-profile text-3xl text-cyan-400"></i>
+            <i class="ph-fill ph-shield-check text-3xl text-cyan-400"></i>
             <div>
                 <h1 class="text-xl font-bold tracking-wider text-slate-100 uppercase">SDV Platform Košice</h1>
-                <p class="text-xs text-slate-400">Adaptive AUTOSAR SOA + V2X + ISO 14229 UDS</p>
+                <p class="text-xs text-slate-400">ISO 21434 Anti-Theft + V2X + ISO 14229 UDS</p>
             </div>
         </div>
         
@@ -93,11 +93,11 @@
         <div class="flex items-center gap-3">
             <i class="ph-bold ph-shield-warning text-amber-400 text-2xl animate-bounce"></i>
             <div>
-                <div class="text-xs text-amber-400 font-bold uppercase tracking-wider">Adaptive AUTOSAR Safety Alert</div>
-                <div id="geofence-alert-text" class="text-sm text-slate-200">Warning: Vehicle entered speed-restricted geofence (50 km/h).</div>
+                <div class="text-xs text-amber-400 font-bold uppercase tracking-wider">ISO 21434 Geofence Security Alert</div>
+                <div id="geofence-alert-text" class="text-sm text-slate-200">Warning: Vehicle exited security perimeter. Speed limited to 15 km/h.</div>
             </div>
         </div>
-        <span class="text-xs text-slate-500 font-mono hidden sm:inline">AUTOSAR.GeofenceService</span>
+        <span class="text-xs text-slate-500 font-mono hidden sm:inline">AUTOSAR.GeofenceLockdown</span>
     </div>
 
     <!-- Main Dashboard Grid -->
@@ -204,30 +204,25 @@
                 <div class="text-xs text-slate-500 absolute top-6 right-6">Pressure (Bar)</div>
                 
                 <div class="relative w-44 h-64 mt-10 mb-2 flex items-center justify-center mx-auto">
-                    <!-- Car Chassis Body -->
                     <div class="absolute inset-0 m-auto w-24 h-52 border-2 border-slate-600 rounded-[2.5rem] opacity-70 bg-gradient-to-b from-slate-800/30 to-slate-800/10"></div>
                     <div class="absolute inset-0 m-auto w-20 h-10 top-12 border border-slate-700 rounded-t-xl bg-slate-800/40"></div>
                     <div class="absolute inset-0 m-auto w-20 h-8 bottom-12 border border-slate-700 rounded-b-xl bg-slate-800/40"></div>
                     
-                    <!-- Front Left Tire -->
                     <div class="absolute top-8 -left-2 w-4 h-10 bg-slate-800 border border-slate-600 rounded-md"></div>
                     <div class="absolute top-9 -left-16 flex flex-col items-end">
                         <span id="ui-tire-fl" class="text-base font-mono font-bold text-white">-.--</span>
                     </div>
                     
-                    <!-- Front Right Tire -->
                     <div class="absolute top-8 -right-2 w-4 h-10 bg-slate-800 border border-slate-600 rounded-md"></div>
                     <div class="absolute top-9 -right-16 flex flex-col items-start">
                         <span id="ui-tire-fr" class="text-base font-mono font-bold text-white">-.--</span>
                     </div>
                     
-                    <!-- Rear Left Tire -->
                     <div class="absolute bottom-8 -left-2 w-4 h-10 bg-slate-800 border border-slate-600 rounded-md"></div>
                     <div class="absolute bottom-9 -left-16 flex flex-col items-end">
                         <span id="ui-tire-rl" class="text-base font-mono font-bold text-white">-.--</span>
                     </div>
                     
-                    <!-- Rear Right Tire -->
                     <div class="absolute bottom-8 -right-2 w-4 h-10 bg-slate-800 border border-slate-600 rounded-md"></div>
                     <div class="absolute bottom-9 -right-16 flex flex-col items-start">
                         <span id="ui-tire-rr" class="text-base font-mono font-bold text-white">-.--</span>
@@ -262,7 +257,7 @@
 
     </main>
 
-    <!-- FAULT INJECTION & SAFETY OVERRIDE PANEL -->
+    <!-- ANTI-THEFT & EMERGENCY CONTROLS PANEL -->
     <footer class="w-full max-w-7xl mt-8 glass-panel p-6 rounded-3xl flex flex-col gap-6">
         
         <!-- OTA Progress Banner -->
@@ -278,92 +273,67 @@
             </div>
         </div>
 
-        <!-- Section 1: OTA Firmware Updates -->
+        <!-- Section 1: ISO 21434 Anti-Theft Protection Suite -->
         <div>
             <h3 class="text-sm uppercase tracking-widest text-slate-300 font-bold flex items-center gap-2 mb-3">
-                <i class="ph-bold ph-cloud-arrow-up text-cyan-400 text-lg"></i> OTA Cloud Firmware Deployment (SOTA)
+                <i class="ph-bold ph-lock-keyhole text-red-400 text-lg"></i> ISO 21434 Cybersecurity & Anti-Theft Suite
             </h3>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <button onclick="sendFaultCommand('ota_sport')" class="px-4 py-3 bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-700/60 text-cyan-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
-                    <i class="ph-bold ph-lightning text-lg"></i>
-                    <span>Deploy v1.1.0-SPORT (75 km/h)</span>
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <!-- 1. Remote Immobilizer / Kill-Switch -->
+                <button onclick="sendFaultCommand('toggle_immobilizer')" class="px-3 py-3 bg-red-950/60 hover:bg-red-900/80 border border-red-700 text-red-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-prohibit text-lg"></i>
+                    <span>Remote Kill-Switch</span>
                 </button>
 
-                <button onclick="sendFaultCommand('ota_eco')" class="px-4 py-3 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-700/60 text-emerald-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
-                    <i class="ph-bold ph-leaf text-lg"></i>
-                    <span>Deploy v1.2.0-ECO (40 km/h)</span>
+                <!-- 2. Cabin Security Deadlock -->
+                <button onclick="sendFaultCommand('toggle_deadlock')" class="px-3 py-3 bg-purple-950/60 hover:bg-purple-900/80 border border-purple-700 text-purple-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-lock-laminated text-lg"></i>
+                    <span>Trap Mode (Deadlock)</span>
                 </button>
 
-                <button onclick="sendFaultCommand('ota_std')" class="px-4 py-3 bg-slate-800/60 hover:bg-slate-700/60 border border-slate-600 text-slate-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
-                    <i class="ph-bold ph-arrow-counter-clockwise text-lg"></i>
-                    <span>Revert v1.0.0-STD</span>
+                <!-- 3. Panic Alarm Strobes -->
+                <button onclick="sendFaultCommand('toggle_panic')" class="px-3 py-3 bg-amber-950/60 hover:bg-amber-900/80 border border-amber-700 text-amber-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-bell-ringing text-lg"></i>
+                    <span>Panic Alarm & Strobes</span>
+                </button>
+
+                <!-- 4. Stealth Tracking -->
+                <button onclick="sendFaultCommand('toggle_stealth')" class="px-3 py-3 bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-700 text-cyan-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-eye-slash text-lg"></i>
+                    <span>Stealth Tracking</span>
+                </button>
+
+                <!-- 5. RF Jamming Trigger -->
+                <button onclick="sendFaultCommand('trigger_jamming')" class="px-3 py-3 bg-orange-950/60 hover:bg-orange-900/80 border border-orange-700 text-orange-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-broadcast text-lg"></i>
+                    <span>Simulate RF Jamming</span>
                 </button>
             </div>
         </div>
 
         <div class="w-full h-[1px] bg-slate-800"></div>
 
-        <!-- Section 2: Complete Emergency Controls & Fault Injection Grid (10 Buttons) -->
+        <!-- Section 2: Safety Overrides & System Reset -->
         <div>
             <h3 class="text-sm uppercase tracking-widest text-slate-300 font-bold flex items-center gap-2 mb-3">
-                <i class="ph-bold ph-shield-warning text-amber-400 text-lg"></i> ISO 26262 ASIL-D Emergency Controls & Fault Injection
+                <i class="ph-bold ph-shield-warning text-amber-400 text-lg"></i> ISO 26262 Safety Overrides & Diagnostics
             </h3>
-            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                <!-- 1. Door Lock/Unlock -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <button onclick="sendFaultCommand('toggle_doors')" class="px-3 py-3 bg-indigo-950/40 hover:bg-indigo-900/60 border border-indigo-700/60 text-indigo-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
                     <i class="ph-bold ph-key text-lg"></i>
                     <span>Door Lock/Unlock</span>
                 </button>
 
-                <!-- 2. Smoke Isolation -->
                 <button onclick="sendFaultCommand('smoke_hazard')" class="px-3 py-3 bg-orange-950/40 hover:bg-orange-900/60 border border-orange-700/60 text-orange-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
                     <i class="ph-bold ph-mask-happy text-lg"></i>
                     <span>Smoke Isolation</span>
                 </button>
 
-                <!-- 3. HV Pyro Fuse Cutoff -->
-                <button onclick="sendFaultCommand('hv_fuse')" class="px-3 py-3 bg-red-950/60 hover:bg-red-900/80 border border-red-700 text-red-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
-                    <i class="ph-bold ph-lightning-slash text-lg"></i>
-                    <span>HV Pyro Fuse Disconnect</span>
-                </button>
-
-                <!-- 4. Thermal Purge -->
-                <button onclick="sendFaultCommand('thermal_purge')" class="px-3 py-3 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-700/60 text-rose-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
-                    <i class="ph-bold ph-snowflake text-lg"></i>
-                    <span>Coolant Thermal Purge</span>
-                </button>
-
-                <!-- 5. Safe Pull-Over -->
-                <button onclick="sendFaultCommand('safe_pullover')" class="px-3 py-3 bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-700/60 text-cyan-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
-                    <i class="ph-bold ph-arrow-line-down-right text-lg"></i>
-                    <span>Safe Pull-Over</span>
-                </button>
-
-                <!-- 6. Brake Redundancy -->
-                <button onclick="sendFaultCommand('brake_backup')" class="px-3 py-3 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-700/60 text-amber-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
-                    <i class="ph-bold ph-footprints text-lg"></i>
-                    <span>EPB Brake Redundancy</span>
-                </button>
-
-                <!-- 7. Crash Prep Strobes -->
-                <button onclick="sendFaultCommand('crash_prep')" class="px-3 py-3 bg-purple-950/40 hover:bg-purple-900/60 border border-purple-700/60 text-purple-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
-                    <i class="ph-bold ph-siren text-lg"></i>
-                    <span>Crash Prep & Strobes</span>
-                </button>
-
-                <!-- 8. Tire Puncture -->
                 <button onclick="sendFaultCommand('puncture_fl')" class="px-3 py-3 bg-red-950/40 hover:bg-red-900/60 border border-red-800/60 text-red-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
                     <i class="ph-bold ph-warning-circle text-lg"></i>
                     <span>Tire Puncture (FL)</span>
                 </button>
 
-                <!-- 9. Battery Overheat -->
-                <button onclick="sendFaultCommand('overheat_battery')" class="px-3 py-3 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/60 text-amber-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
-                    <i class="ph-bold ph-thermometer-hot text-lg"></i>
-                    <span>Battery Overheat</span>
-                </button>
-
-                <!-- 10. Reset Systems -->
                 <button onclick="sendFaultCommand('reset_faults')" class="px-3 py-3 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/60 text-emerald-300 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
                     <i class="ph-bold ph-check-circle text-lg"></i>
                     <span>Reset All Systems</span>
@@ -521,8 +491,8 @@
 
             if (data.driver_state) {
                 ui.driverState.innerText = `AI: ${data.driver_state}`;
-                const isCritical = ['EMERGENCY STOP', 'RED LIGHT STOP', 'HV PYRO CUTOFF', 'CRASH STROBES ACTIVE'].includes(data.driver_state);
-                const isWarning = ['CORNERING', 'OTA FLASHING', 'V2X SLOWDOWN', 'CABIN ISOLATED', 'THERMAL PURGE', 'EPB BRAKE BACKUP', 'SAFE PULLOVER'].includes(data.driver_state);
+                const isCritical = ['IMMOBILIZED (KILL-SWITCH)', 'EMERGENCY STOP', 'PANIC ALARM STROBES', 'RF JAMMED SAFEGUARD', 'HV PYRO CUTOFF'].includes(data.driver_state);
+                const isWarning = ['GEOFENCE LOCKDOWN', 'STEALTH TRACKING', 'CORNERING', 'OTA FLASHING', 'V2X SLOWDOWN', 'CABIN ISOLATED'].includes(data.driver_state);
                 
                 if (isCritical) {
                     ui.driverState.className = "text-[11px] font-mono font-bold text-red-400 uppercase";
@@ -536,22 +506,18 @@
                 }
             }
 
+            if (data.security && data.security.geofence_lockdown) {
+                document.getElementById('geofence-alert').classList.remove('hidden');
+            } else {
+                document.getElementById('geofence-alert').classList.add('hidden');
+            }
+
             if (data.location) {
                 const lat = data.location.lat;
                 const lng = data.location.lng;
                 ui.latLng.innerText = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
                 carMarker.setLatLng([lat, lng]);
                 map.panTo([lat, lng], { animate: true, duration: 0.8 });
-
-                const carLatLng = L.latLng(lat, lng);
-                const distance = carLatLng.distanceTo(L.latLng(GEOFENCE_CENTER));
-                const geofenceAlert = document.getElementById('geofence-alert');
-
-                if (distance <= GEOFENCE_RADIUS_METERS) {
-                    geofenceAlert.classList.remove('hidden');
-                } else {
-                    geofenceAlert.classList.add('hidden');
-                }
             }
 
             if(data.speed_kmh !== undefined) {
@@ -559,15 +525,6 @@
                 ui.speed.innerText = Math.round(speed);
                 const pct = Math.min(1, speed / 160);
                 ui.speedArc.style.strokeDashoffset = 660 - (pct * 660);
-                
-                if(speed > 130) {
-                    ui.speedArc.setAttribute('stroke', '#ef4444');
-                    ui.speedArc.classList.replace('glow-cyan', 'glow-red');
-                } else {
-                    ui.speedArc.setAttribute('stroke', '#0ea5e9');
-                    ui.speedArc.classList.remove('glow-red');
-                    ui.speedArc.classList.add('glow-cyan');
-                }
             }
 
             if(data.battery_pct !== undefined) {
@@ -578,7 +535,6 @@
             
             if(data.battery_temp_c !== undefined) {
                 ui.temp.innerText = data.battery_temp_c.toFixed(1);
-                ui.temp.parentElement.className = data.battery_temp_c > 60 ? "text-lg font-semibold text-red-400 animate-pulse" : "text-lg font-semibold text-white";
             }
             
             if(data.odometer_km !== undefined) ui.odo.innerText = Math.round(data.odometer_km).toLocaleString();
@@ -607,7 +563,8 @@
             };
 
             if(data.status) {
-                updateWidget(ui.doors, !data.status.doors_closed, 'ph-door-open', 'ph-door', 'Open', 'Closed', true);
+                const isDeadlock = data.security && data.security.deadlock;
+                updateWidget(ui.doors, !data.status.doors_closed || isDeadlock, isDeadlock ? 'ph-lock-laminated' : 'ph-door-open', 'ph-door', isDeadlock ? 'Deadlocked' : 'Open', 'Closed', true);
                 updateWidget(ui.belts, !data.status.seatbelts_fastened, 'ph-seatbelt', 'ph-seatbelt', 'Unbuckled', 'Fastened', true);
                 
                 if (data.recirc_on) {

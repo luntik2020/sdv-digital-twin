@@ -94,7 +94,7 @@
             <i class="ph-bold ph-shield-warning text-amber-400 text-2xl animate-bounce"></i>
             <div>
                 <div class="text-xs text-amber-400 font-bold uppercase tracking-wider">ISO 21434 Geofence Security Alert</div>
-                <div id="geofence-alert-text" class="text-sm text-slate-200">Warning: Vehicle exited security perimeter. Speed limited to 15 km/h.</div>
+                <div id="geofence-alert-text" class="text-sm text-slate-200">Warning: Vehicle exited security perimeter anchor. Speed limited to 15 km/h.</div>
             </div>
         </div>
         <span class="text-xs text-slate-500 font-mono hidden sm:inline">AUTOSAR.GeofenceLockdown</span>
@@ -159,7 +159,6 @@
         <!-- CENTER COLUMN: Speedometer, ADAS State & Live GPS Map -->
         <div class="flex flex-col gap-6">
             <div class="glass-panel rounded-3xl p-6 flex flex-col items-center justify-center relative">
-                <!-- ADAS AI State Badge -->
                 <div class="absolute top-4 left-4 px-3 py-1 bg-slate-800/80 border border-slate-700 rounded-full flex items-center gap-2">
                     <span id="ui-driver-dot" class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
                     <span id="ui-driver-state" class="text-[11px] font-mono font-bold text-cyan-400 uppercase">AI: CRUISING</span>
@@ -189,7 +188,7 @@
             <div class="glass-panel rounded-3xl p-4 flex flex-col justify-between h-[280px] relative overflow-hidden">
                 <div class="flex justify-between items-center mb-2 px-2">
                     <span class="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
-                        <i class="ph-bold ph-navigation-arrow text-cyan-400"></i> Live GPS & Geofence (Košice)
+                        <i class="ph-bold ph-navigation-arrow text-cyan-400"></i> Live GPS & Dynamic Geofence Anchor
                     </span>
                     <span id="ui-latlng" class="text-[11px] font-mono text-cyan-400">48.7220, 21.2575</span>
                 </div>
@@ -301,7 +300,12 @@
             <h3 class="text-xs uppercase tracking-widest text-red-400 font-bold flex items-center gap-2 mb-3">
                 <i class="ph-bold ph-lock-keyhole text-lg"></i> Group 2: ISO 21434 Anti-Theft & Cybersecurity Suite
             </h3>
-            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                <button onclick="sendFaultCommand('toggle_geofence')" class="px-3 py-3 bg-amber-950/60 hover:bg-amber-900/80 border border-amber-700/80 text-amber-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="ph-bold ph-shield-check text-lg"></i>
+                    <span>Arm Geofence Guard</span>
+                </button>
+
                 <button onclick="sendFaultCommand('toggle_immobilizer')" class="px-3 py-3 bg-red-950/60 hover:bg-red-900/80 border border-red-700/80 text-red-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
                     <i class="ph-bold ph-prohibit text-lg"></i>
                     <span>Remote Kill-Switch</span>
@@ -412,41 +416,6 @@
         let client;
         let map, carMarker, geofenceCircle;
 
-        const GEOFENCE_CENTER = [48.7220, 21.2575];
-        const GEOFENCE_RADIUS_METERS = 400;
-
-        const ui = {
-            mqttDot: document.getElementById('mqtt-dot'),
-            mqttText: document.getElementById('mqtt-text'),
-            speed: document.getElementById('ui-speed'),
-            speedArc: document.getElementById('ui-speed-arc'),
-            battery: document.getElementById('ui-battery'),
-            batteryBar: document.getElementById('ui-battery-bar'),
-            range: document.getElementById('ui-range'),
-            temp: document.getElementById('ui-temp'),
-            odo: document.getElementById('ui-odo'),
-            latLng: document.getElementById('ui-latlng'),
-            swVersion: document.getElementById('ui-sw-version'),
-            driverState: document.getElementById('ui-driver-state'),
-            driverDot: document.getElementById('ui-driver-dot'),
-            otaBanner: document.getElementById('ota-banner'),
-            otaProgressText: document.getElementById('ota-progress-text'),
-            otaProgressBar: document.getElementById('ota-progress-bar'),
-            v2xAlert: document.getElementById('v2x-alert'),
-            v2xAlertText: document.getElementById('v2x-alert-text'),
-            dtcContainer: document.getElementById('dtc-container'),
-            dtcBadge: document.getElementById('dtc-count-badge'),
-            tireFl: document.getElementById('ui-tire-fl'),
-            tireFr: document.getElementById('ui-tire-fr'),
-            tireRl: document.getElementById('ui-tire-rl'),
-            tireRr: document.getElementById('ui-tire-rr'),
-            centerGear: document.getElementById('ui-center-gear'),
-            doors: { el: document.getElementById('stat-doors'), icon: document.getElementById('icon-doors'), text: document.getElementById('text-doors') },
-            belts: { el: document.getElementById('stat-belts'), icon: document.getElementById('icon-belts'), text: document.getElementById('text-belts') },
-            ac: { el: document.getElementById('stat-ac'), icon: document.getElementById('icon-ac'), text: document.getElementById('text-ac') },
-            gear: { el: document.getElementById('stat-gear'), icon: document.getElementById('icon-gear'), text: document.getElementById('text-gear') },
-        };
-
         function initMap() {
             map = L.map('map', { zoomControl: false }).setView([48.7220, 21.2575], 14);
             
@@ -455,11 +424,12 @@
                 maxZoom: 19
             }).addTo(map);
 
-            geofenceCircle = L.circle(GEOFENCE_CENTER, {
+            geofenceCircle = L.circle([48.7220, 21.2575], {
                 color: '#f59e0b',
                 fillColor: '#f59e0b',
-                fillOpacity: 0.15,
-                radius: GEOFENCE_RADIUS_METERS
+                fillOpacity: 0.0,
+                opacity: 0.0,
+                radius: 400
             }).addTo(map);
 
             const carIcon = L.divIcon({
@@ -513,6 +483,38 @@
                 client.publish(topic, payload);
             }
         }
+
+        const ui = {
+            mqttDot: document.getElementById('mqtt-dot'),
+            mqttText: document.getElementById('mqtt-text'),
+            speed: document.getElementById('ui-speed'),
+            speedArc: document.getElementById('ui-speed-arc'),
+            battery: document.getElementById('ui-battery'),
+            batteryBar: document.getElementById('ui-battery-bar'),
+            range: document.getElementById('ui-range'),
+            temp: document.getElementById('ui-temp'),
+            odo: document.getElementById('ui-odo'),
+            latLng: document.getElementById('ui-latlng'),
+            swVersion: document.getElementById('ui-sw-version'),
+            driverState: document.getElementById('ui-driver-state'),
+            driverDot: document.getElementById('ui-driver-dot'),
+            otaBanner: document.getElementById('ota-banner'),
+            otaProgressText: document.getElementById('ota-progress-text'),
+            otaProgressBar: document.getElementById('ota-progress-bar'),
+            v2xAlert: document.getElementById('v2x-alert'),
+            v2xAlertText: document.getElementById('v2x-alert-text'),
+            dtcContainer: document.getElementById('dtc-container'),
+            dtcBadge: document.getElementById('dtc-count-badge'),
+            tireFl: document.getElementById('ui-tire-fl'),
+            tireFr: document.getElementById('ui-tire-fr'),
+            tireRl: document.getElementById('ui-tire-rl'),
+            tireRr: document.getElementById('ui-tire-rr'),
+            centerGear: document.getElementById('ui-center-gear'),
+            doors: { el: document.getElementById('stat-doors'), icon: document.getElementById('icon-doors'), text: document.getElementById('text-doors') },
+            belts: { el: document.getElementById('stat-belts'), icon: document.getElementById('icon-belts'), text: document.getElementById('text-belts') },
+            ac: { el: document.getElementById('stat-ac'), icon: document.getElementById('icon-ac'), text: document.getElementById('text-ac') },
+            gear: { el: document.getElementById('stat-gear'), icon: document.getElementById('icon-gear'), text: document.getElementById('text-gear') },
+        };
 
         function updateDashboard(data) {
             if (data.sw_version) {
@@ -572,6 +574,15 @@
                 document.getElementById('geofence-alert').classList.remove('hidden');
             } else {
                 document.getElementById('geofence-alert').classList.add('hidden');
+            }
+
+            if (data.security) {
+                if (data.security.geofence_enabled && data.security.geofence_center) {
+                    geofenceCircle.setLatLng(data.security.geofence_center);
+                    geofenceCircle.setStyle({ opacity: 1.0, fillOpacity: 0.15 });
+                } else {
+                    geofenceCircle.setStyle({ opacity: 0.0, fillOpacity: 0.0 });
+                }
             }
 
             if (data.location) {

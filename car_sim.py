@@ -12,58 +12,40 @@ TELEMETRY_TOPIC_PREFIX = "sdv/telemetry/"
 COMMANDS_TOPIC = "sdv/commands/+"
 V2X_HAZARD_TOPIC = "sdv/v2x/hazard"
 
-# Замкнутые кольцевые маршруты по улицам Кошице [lng, lat]
 WAYPOINTS = {
     "car_001": [
-        [21.2531, 48.7245],
-        [21.2520, 48.7182],
-        [21.2615, 48.7160],
-        [21.2625, 48.7240],
-        [21.2558, 48.7285],
-        [21.2531, 48.7245]
+        [21.2531, 48.7245], [21.2520, 48.7182], [21.2615, 48.7160],
+        [21.2625, 48.7240], [21.2558, 48.7285], [21.2531, 48.7245]
     ],
     "car_002": [
-        [21.2420, 48.7300],
-        [21.2510, 48.7370],
-        [21.2545, 48.7350],
-        [21.2480, 48.7280],
-        [21.2420, 48.7300]
+        [21.2420, 48.7300], [21.2510, 48.7370], [21.2545, 48.7350],
+        [21.2480, 48.7280], [21.2420, 48.7300]
     ],
     "car_003": [
-        [21.2580, 48.7140],
-        [21.2610, 48.7000],
-        [21.2540, 48.7000],
-        [21.2520, 48.7150],
-        [21.2580, 48.7140]
+        [21.2580, 48.7140], [21.2610, 48.7000], [21.2540, 48.7000],
+        [21.2520, 48.7150], [21.2580, 48.7140]
     ]
 }
 
 def fetch_osrm_road_geometry(coords):
-    """ Запрашивает геометрию дорог OSRM для замкнутого кольца """
     try:
         coord_str = ";".join([f"{c[0]},{c[1]}" for c in coords])
         url = f"https://router.project-osrm.org/route/v1/driving/{coord_str}?overview=full&geometries=geojson"
-        
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
-
-        req = urllib.request.Request(
-            url, 
-            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-        )
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
         with urllib.request.urlopen(req, context=ctx, timeout=5) as response:
             data = json.loads(response.read().decode())
             geometry = data['routes'][0]['geometry']['coordinates']
-            pts = [[p[1], p[0]] for p in geometry]  # lat, lng
+            pts = [[p[1], p[0]] for p in geometry]
             print(f"[OSRM SUCCESS] Построено кольцо из {len(pts)} точек.")
             return pts
     except Exception as e:
         print(f"[OSRM WARN] OSRM недоступен ({e}). Использована локальная сетка.")
         dense_pts = []
         for i in range(len(coords) - 1):
-            p1 = coords[i]
-            p2 = coords[i + 1]
+            p1, p2 = coords[i], coords[i + 1]
             for step in range(20):
                 t = step / 20.0
                 lat = p1[1] + (p2[1] - p1[1]) * t
@@ -72,7 +54,6 @@ def fetch_osrm_road_geometry(coords):
         return dense_pts
 
 def haversine_distance(p1, p2):
-    """ Расчет расстояния между GPS точками в метрах """
     R = 6371000.0
     phi1, phi2 = math.radians(p1[0]), math.radians(p2[0])
     dphi = math.radians(p2[0] - p1[0])
@@ -81,7 +62,6 @@ def haversine_distance(p1, p2):
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 def prepare_fleet_routes(fleet_data):
-    """ Предрасчет накопительной дистанции маршрута """
     for car_id, car in fleet_data.items():
         pts = car["route_points"]
         cum_dist = [0.0]
@@ -93,7 +73,6 @@ def prepare_fleet_routes(fleet_data):
         car["dist_along_route"] = 0.0
 
 def get_position_at_distance(pts, cum_dist, total_dist, target_d):
-    """ Вычисляет точные координаты машины на дистанции target_d (в метрах) """
     target_d = target_d % total_dist
     for i in range(len(cum_dist) - 1):
         if cum_dist[i] <= target_d <= cum_dist[i+1]:
@@ -115,7 +94,8 @@ fleet = {
         "route_points": fetch_osrm_road_geometry(WAYPOINTS["car_001"]),
         "state": "CRUISING", "stop_timer": 0,
         "sw_version": "v1.0.0-STD", "ota_status": "IDLE", "ota_progress": 0, "pending_ota": None,
-        "dtc_codes": [], "v2x_warning": None,
+        "dtc_codes": [], "v2x_warning": None, "v2x_timestamp": 0.0,
+        "recirc_on": False, "smoke_hazard": False,
         "tire_pressures": {"fl": 2.20, "fr": 2.20, "rl": 2.20, "rr": 2.20}
     },
     "car_002": {
@@ -124,7 +104,8 @@ fleet = {
         "route_points": fetch_osrm_road_geometry(WAYPOINTS["car_002"]),
         "state": "CRUISING", "stop_timer": 0,
         "sw_version": "v1.0.0-STD", "ota_status": "IDLE", "ota_progress": 0, "pending_ota": None,
-        "dtc_codes": [], "v2x_warning": None,
+        "dtc_codes": [], "v2x_warning": None, "v2x_timestamp": 0.0,
+        "recirc_on": False, "smoke_hazard": False,
         "tire_pressures": {"fl": 2.25, "fr": 2.25, "rl": 2.25, "rr": 2.25}
     },
     "car_003": {
@@ -133,7 +114,8 @@ fleet = {
         "route_points": fetch_osrm_road_geometry(WAYPOINTS["car_003"]),
         "state": "CRUISING", "stop_timer": 0,
         "sw_version": "v1.0.0-STD", "ota_status": "IDLE", "ota_progress": 0, "pending_ota": None,
-        "dtc_codes": [], "v2x_warning": None,
+        "dtc_codes": [], "v2x_warning": None, "v2x_timestamp": 0.0,
+        "recirc_on": False, "smoke_hazard": False,
         "tire_pressures": {"fl": 2.30, "fr": 2.30, "rl": 2.30, "rr": 2.30}
     }
 }
@@ -141,7 +123,6 @@ fleet = {
 prepare_fleet_routes(fleet)
 
 def update_dtc_diagnostics(car_id):
-    """ Сервис автодиагностики DTC (ISO 14229 UDS) """
     car = fleet[car_id]
     codes = []
     
@@ -150,12 +131,23 @@ def update_dtc_diagnostics(car_id):
     if car["faults"].get("puncture_fl"):
         codes.append({"code": "C0031", "desc": "Left Front Wheel Pressure Signal Abnormal", "severity": "WARNING"})
     if car["faults"].get("open_door"):
-        codes.append({"code": "B1203", "desc": "Passenger Door Ajar Signal Active", "severity": "INFO"})
+        codes.append({"code": "B1203", "desc": "Passenger Door Emergency Unlock Override", "severity": "INFO"})
+    if car["smoke_hazard"]:
+        codes.append({"code": "B14A2", "desc": "HVAC Smoke Isolation - Recirculation Active", "severity": "WARNING"})
+    if car["faults"].get("hv_fuse"):
+        codes.append({"code": "P0A0A", "desc": "High Voltage Interlock Cutoff / Pyro-Fuse Fired", "severity": "CRITICAL"})
+    if car["faults"].get("thermal_purge"):
+        codes.append({"code": "P0A80", "desc": "Hybrid Battery Thermal Runaway Purge Active", "severity": "CRITICAL"})
+    if car["faults"].get("safe_pullover"):
+        codes.append({"code": "U0100", "desc": "Telematics Safe Pull-Over Override Initiated", "severity": "WARNING"})
+    if car["faults"].get("brake_backup"):
+        codes.append({"code": "C1203", "desc": "Primary Brake Failure - EPB Redundancy Engaged", "severity": "WARNING"})
+    if car["faults"].get("crash_prep"):
+        codes.append({"code": "B0001", "desc": "Crash Event - Window Micro-Drop & Strobes Active", "severity": "CRITICAL"})
 
     car["dtc_codes"] = codes
 
 def process_ota_updates(car_id):
-    """ Обработчик Over-The-Air обновлений в реальном времени """
     car = fleet[car_id]
     if car["pending_ota"] and car["ota_status"] == "UPDATING":
         car["ota_progress"] += 20
@@ -174,41 +166,66 @@ def process_ota_updates(car_id):
             car["ota_status"] = "SUCCESS"
             car["ota_progress"] = 100
             car["pending_ota"] = None
-            print(f"[OTA SUCCESS] {car_id} успешно обновлен до версии {car['sw_version']}!")
 
 def update_ai_driver_behavior(car_id, client):
-    """ ИИ-контроллер вождения и трансляция V2X сигналов """
     car = fleet[car_id]
-    
-    # Обработка активной установки OTA
+
+    if car.get("v2x_warning") and car.get("v2x_timestamp"):
+        if time.time() - car["v2x_timestamp"] > 10.0:
+            car["v2x_warning"] = None
+
     if car["ota_status"] == "UPDATING":
         car["target_speed"] = max(15.0, car["speed"] * 0.8)
         car["state"] = "OTA FLASHING"
         return
 
-    # 1. Приоритетный контроль критических неисправностей (Аварийная остановка + V2X вещание)
+    # Приоритетная логика аварийных состояний
+    if car["faults"].get("hv_fuse"):
+        car["target_speed"] = 0.0
+        car["state"] = "HV PYRO CUTOFF"
+        return
+
+    if car["faults"].get("crash_prep"):
+        car["target_speed"] = 0.0
+        car["state"] = "CRASH STROBES ACTIVE"
+        return
+
+    if car["faults"].get("safe_pullover"):
+        car["target_speed"] = 0.0
+        car["state"] = "SAFE PULLOVER"
+        return
+
     if car["faults"].get("overheat_battery") or car["faults"].get("puncture_fl"):
         car["target_speed"] = 0.0
         car["state"] = "EMERGENCY STOP"
         
         v2x_payload = {
-            "sender": car_id,
-            "event": "HAZARD_STOP",
-            "lat": car["route_points"][0][0],
-            "lng": car["route_points"][0][1],
+            "sender": car_id, "event": "HAZARD_STOP",
+            "lat": car["route_points"][0][0], "lng": car["route_points"][0][1],
             "timestamp": time.time()
         }
         client.publish(V2X_HAZARD_TOPIC, json.dumps(v2x_payload))
         return
 
-    # 2. Остановка на красный свет светофора
+    if car["faults"].get("thermal_purge"):
+        car["target_speed"] = 25.0
+        car["state"] = "THERMAL PURGE"
+        return
+
+    if car["faults"].get("brake_backup"):
+        car["target_speed"] = 30.0
+        car["state"] = "EPB BRAKE BACKUP"
+        return
+
+    if car["smoke_hazard"]:
+        car["state"] = "CABIN ISOLATED"
+
     if car["stop_timer"] > 0:
         car["stop_timer"] -= 1
         car["target_speed"] = 0.0
         car["state"] = "RED LIGHT STOP"
         return
 
-    # 3. Реакция на внешние V2X предупреждения
     if car["v2x_warning"]:
         car["target_speed"] = 30.0
         car["state"] = "V2X SLOWDOWN"
@@ -216,8 +233,7 @@ def update_ai_driver_behavior(car_id, client):
 
     curr_d = car["dist_along_route"]
     pts = car["route_points"]
-    cum_d = car["cum_dist"]
-    tot_d = car["total_dist"]
+    cum_d, tot_d = car["cum_dist"], car["total_dist"]
 
     lat1, lng1 = get_position_at_distance(pts, cum_d, tot_d, curr_d)
     lat2, lng2 = get_position_at_distance(pts, cum_d, tot_d, curr_d + 15)
@@ -225,16 +241,13 @@ def update_ai_driver_behavior(car_id, client):
 
     v1 = (lat2 - lat1, lng2 - lng1)
     v2 = (lat3 - lat2, lng3 - lng2)
-    len1 = math.hypot(*v1)
-    len2 = math.hypot(*v2)
+    len1, len2 = math.hypot(*v1), math.hypot(*v2)
 
     angle = 0.0
     if len1 > 0.000001 and len2 > 0.000001:
-        dot = (v1[0]*v2[0] + v1[1]*v2[1]) / (len1 * len2)
-        dot = max(-1.0, min(1.0, dot))
+        dot = max(-1.0, min(1.0, (v1[0]*v2[0] + v1[1]*v2[1]) / (len1 * len2)))
         angle = math.degrees(math.acos(dot))
 
-    # 4. Притормаживание на повороте
     if angle > 25.0:
         car["target_speed"] = 20.0
         car["state"] = "CORNERING"
@@ -243,18 +256,17 @@ def update_ai_driver_behavior(car_id, client):
             car["stop_timer"] = random.randint(4, 7)
             car["target_speed"] = 0.0
             car["state"] = "RED LIGHT STOP"
-            print(f"[TRAFFIC AI] {car_id} остановился на красный свет.")
         else:
             car["target_speed"] = car["cruise_speed"] + random.uniform(-2, 2)
-            car["state"] = "CRUISING"
+            if not car["smoke_hazard"]:
+                car["state"] = "CRUISING"
 
 def update_car_physics_and_position(car_id):
-    """ Постепенная физика торможения/разгона и расчет позиции """
     car = fleet[car_id]
-
     speed_diff = car["target_speed"] - car["speed"]
+
     if speed_diff < 0:
-        decel_rate = 4.0 if car["state"] == "EMERGENCY STOP" else 8.0
+        decel_rate = 12.0 if car["faults"].get("hv_fuse") or car["faults"].get("crash_prep") else 4.0
         car["speed"] = max(0.0, car["speed"] - decel_rate)
     elif speed_diff > 0:
         car["speed"] = min(car["target_speed"], car["speed"] + 4.0)
@@ -268,33 +280,24 @@ def update_car_physics_and_position(car_id):
     lat, lng = get_position_at_distance(
         car["route_points"], car["cum_dist"], car["total_dist"], car["dist_along_route"]
     )
-
     return lat, lng
 
 def update_tire_thermodynamics(car_id):
-    """ Плавно меняет давление в шинах на основе физики нагрева, остывания и стравливания """
     car = fleet[car_id]
     speed = car["speed"]
     tp = car["tire_pressures"]
-
-    # Целевое давление от нагрева в движении (от 2.15 бар на стояночном месте до ~2.38 бар на 75+ км/ч)
     target_warm_pressure = 2.15 + (speed / 100.0) * 0.30
 
     for key in ["fl", "fr", "rl", "rr"]:
-        # 1. Прокол переднего левого колеса (плавное стравливание до 1.15 бар)
         if key == "fl" and car["faults"].get("puncture_fl"):
             if tp[key] > 1.15:
-                tp[key] -= 0.08  # Плавный спуск воздуха за несколько секунд
+                tp[key] -= 0.08
             else:
                 tp[key] = 1.15 + random.uniform(-0.01, 0.01)
             continue
 
-        # 2. Если колесо исправно — оно плавно приближается к целевой температуре/давлению
         diff = target_warm_pressure - tp[key]
-        tp[key] += diff * 0.03  # Инерционный плавный разогрев/остывание
-
-        # Микроскопический аналоговый шум датчика TPMS (±0.005 бар)
-        tp[key] += random.uniform(-0.005, 0.005)
+        tp[key] += diff * 0.03 + random.uniform(-0.005, 0.005)
 
 def on_connect(client, userdata, flags, rc, properties=None):
     print("[MQTT] Симулятор подключен к брокеру.")
@@ -306,9 +309,18 @@ def on_message(client, userdata, msg):
         if msg.topic == V2X_HAZARD_TOPIC:
             payload = json.loads(msg.payload.decode())
             sender = payload.get("sender")
-            for car_id in fleet:
-                if car_id != sender:
-                    fleet[car_id]["v2x_warning"] = f"HAZARD: Vehicle {sender} stopped!"
+            event = payload.get("event")
+
+            if event == "HAZARD_STOP":
+                for car_id in fleet:
+                    if car_id != sender:
+                        fleet[car_id]["v2x_warning"] = f"HAZARD: Vehicle {sender} stopped!"
+                        fleet[car_id]["v2x_timestamp"] = time.time()
+            elif event == "HAZARD_CLEARED":
+                for car_id in fleet:
+                    if car_id != sender:
+                        if fleet[car_id]["v2x_warning"] and sender in fleet[car_id]["v2x_warning"]:
+                            fleet[car_id]["v2x_warning"] = None
             return
 
         topic_parts = msg.topic.split("/")
@@ -322,16 +334,22 @@ def on_message(client, userdata, msg):
                 fleet[car_id]["pending_ota"] = command
                 fleet[car_id]["ota_status"] = "UPDATING"
                 fleet[car_id]["ota_progress"] = 0
-                print(f"[OTA INITIATED] Старт загрузки OTA прошивки '{command}' для {car_id}")
-            elif command == "puncture_fl":
-                fleet[car_id]["faults"]["puncture_fl"] = True
-            elif command == "overheat_battery":
-                fleet[car_id]["faults"]["overheat_battery"] = True
-            elif command == "open_door":
-                fleet[car_id]["faults"]["open_door"] = True
+            elif command in ["puncture_fl", "overheat_battery", "hv_fuse", "thermal_purge", "safe_pullover", "brake_backup", "crash_prep"]:
+                fleet[car_id]["faults"][command] = True
+            elif command == "toggle_doors":
+                currently_closed = not fleet[car_id]["faults"].get("open_door", False)
+                fleet[car_id]["faults"]["open_door"] = currently_closed
+            elif command == "smoke_hazard":
+                fleet[car_id]["smoke_hazard"] = True
+                fleet[car_id]["recirc_on"] = True
             elif command == "reset_faults":
                 fleet[car_id]["faults"] = {}
+                fleet[car_id]["smoke_hazard"] = False
+                fleet[car_id]["recirc_on"] = False
                 fleet[car_id]["v2x_warning"] = None
+                
+                clear_payload = {"sender": car_id, "event": "HAZARD_CLEARED", "timestamp": time.time()}
+                client.publish(V2X_HAZARD_TOPIC, json.dumps(clear_payload))
     except Exception as e:
         print("[ERROR] Ошибка команды:", e)
 
@@ -353,7 +371,6 @@ try:
             update_tire_thermodynamics(car_id)
 
             is_moving = data["speed"] > 0.5
-
             if is_moving:
                 data["battery"] = max(0.0, data["battery"] - random.uniform(0.01, 0.03))
                 data["odo"] += (data["speed"] / 3600)
@@ -363,11 +380,7 @@ try:
                 current_temp = 68.5 + random.uniform(0.1, 0.8)
 
             doors_closed = False if data["faults"].get("open_door") else True
-
-            if data["speed"] == 0.0 and (data["state"] == "EMERGENCY STOP" or len(data["faults"]) > 0):
-                gear_state = "P"
-            else:
-                gear_state = "D"
+            gear_state = "P" if (data["speed"] == 0.0 and len(data["faults"]) > 0) else "D"
 
             telemetry_payload = {
                 "vehicle_id": car_id,
@@ -382,10 +395,9 @@ try:
                 "ota_progress": data["ota_progress"],
                 "dtc_codes": data["dtc_codes"],
                 "v2x_warning": data["v2x_warning"],
-                "location": {
-                    "lat": round(lat, 6),
-                    "lng": round(lng, 6)
-                },
+                "recirc_on": data["recirc_on"],
+                "smoke_hazard": data["smoke_hazard"],
+                "location": {"lat": round(lat, 6), "lng": round(lng, 6)},
                 "tires_bar": {
                     "fl": round(data["tire_pressures"]["fl"], 2),
                     "fr": round(data["tire_pressures"]["fr"], 2),
@@ -395,11 +407,10 @@ try:
                 "status": {
                     "doors_closed": doors_closed,
                     "seatbelts_fastened": True,
-                    "ac_on": True,
+                    "ac_on": not data["smoke_hazard"],
                     "gear": gear_state
                 }
             }
-
             topic = f"{TELEMETRY_TOPIC_PREFIX}{car_id}"
             client.publish(topic, json.dumps(telemetry_payload))
 
